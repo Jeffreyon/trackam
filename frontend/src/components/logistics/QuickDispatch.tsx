@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Zap, X, ChevronRight, Loader2 } from "lucide-react";
 import { routesApi, ridersApi, shipmentsApi, type Route, type Rider } from "@/services/logistics";
-import { formatNaira } from "@/lib/format";
 
 interface Props {
   onDispatched?: () => void;

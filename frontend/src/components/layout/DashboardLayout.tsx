@@ -46,7 +46,7 @@ function SidebarContent({
 }: {
   collapsed: boolean;
   onNavClick?: () => void;
-  profile: ReturnType<typeof useProfileStore>["getState"]["prototype"] | null;
+  profile: import("@/types/profile").Profile | null;
   loggingOut: boolean;
   onLogout: () => void;
   onToggleCollapse?: () => void;
