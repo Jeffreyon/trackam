@@ -66,7 +66,7 @@ function computeRiskScore({ distanceKm, vehicleType, ghostRate, totalShipments, 
 
   // Recipient contact reduces risk — someone on the other end can confirm
   if (hasRecipientPhone) {
-    points -= 10; reasons.push("Recipient contact on file (−10)");
+    points -= 10; reasons.push("Recipient contact on file (-10)");
   }
 
   const score = Math.max(0, points);
