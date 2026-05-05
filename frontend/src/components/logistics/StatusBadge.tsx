@@ -7,7 +7,6 @@ const STATUS_STYLES: Record<ShipmentStatus, string> = {
   delivered:  "bg-green-50 text-green-700 border-green-200",
   failed:     "bg-red-50 text-red-700 border-red-200",
   ghosted:    "bg-orange-50 text-orange-700 border-orange-200",
-  recovered:  "bg-teal-50 text-teal-700 border-teal-200",
 };
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
@@ -16,7 +15,6 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
   delivered:  "Delivered",
   failed:     "Failed",
   ghosted:    "Ghosted",
-  recovered:  "Recovered",
 };
 
 const RISK_STYLES: Record<RiskScore, string> = {

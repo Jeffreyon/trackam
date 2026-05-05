@@ -8,7 +8,7 @@ import { StatusBadge, RiskBadge } from "@/components/logistics/StatusBadge";
 const NEXT_STATUSES: Partial<Record<ShipmentStatus, ShipmentStatus[]>> = {
   pending:    ["in_transit", "failed"],
   in_transit: ["delivered", "ghosted", "failed"],
-  ghosted:    ["recovered"],
+  ghosted:    ["in_transit"],
 };
 
 export default function ShipmentDetailPage() {
@@ -201,14 +201,14 @@ export default function ShipmentDetailPage() {
                 disabled={updating}
                 className={[
                   "inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium transition-colors disabled:opacity-60",
-                  s === "delivered"  ? "bg-green-600 text-white hover:bg-green-700" :
-                  s === "ghosted"    ? "bg-orange-600 text-white hover:bg-orange-700" :
-                  s === "recovered"  ? "bg-teal-600 text-white hover:bg-teal-700" :
-                                       "bg-red-600 text-white hover:bg-red-700",
+                  s === "delivered" ? "bg-green-600 text-white hover:bg-green-700" :
+                  s === "ghosted"   ? "bg-orange-600 text-white hover:bg-orange-700" :
+                  (s === "in_transit" && shipment.status === "ghosted") ? "bg-teal-600 text-white hover:bg-teal-700" :
+                                      "bg-red-600 text-white hover:bg-red-700",
                 ].join(" ")}
               >
-                {updating ? <Loader2 className="h-3 w-3 animate-spin" /> : s === "recovered" ? <RefreshCw className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
-                {s === "recovered" ? "Mark as Recovered" : `Mark as ${s.replace("_", " ")}`}
+                {updating ? <Loader2 className="h-3 w-3 animate-spin" /> : (s === "in_transit" && shipment.status === "ghosted") ? <RefreshCw className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                {(s === "in_transit" && shipment.status === "ghosted") ? "Recover shipment" : `Mark as ${s.replace("_", " ")}`}
               </button>
             ))}
           </div>

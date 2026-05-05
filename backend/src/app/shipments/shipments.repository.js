@@ -100,9 +100,9 @@ async function updateStatus(id, userId, { newStatus, note }) {
     `UPDATE shipments
      SET status = $1,
          last_status_update_at = NOW(),
-         delay_flag = CASE WHEN $1 IN ('delivered','failed','ghosted','recovered') THEN FALSE ELSE delay_flag END,
-         ghosting_flag = CASE WHEN $1 = 'ghosted' THEN TRUE WHEN $1 IN ('delivered','failed','recovered') THEN FALSE ELSE ghosting_flag END,
-         actual_delivery_date = CASE WHEN $1 IN ('delivered','failed','ghosted') THEN NOW()::date ELSE actual_delivery_date END,
+         delay_flag = CASE WHEN $1 IN ('delivered','failed','ghosted') THEN FALSE ELSE delay_flag END,
+         ghosting_flag = CASE WHEN $1 = 'ghosted' THEN TRUE WHEN $1 IN ('delivered','failed','in_transit') THEN FALSE ELSE ghosting_flag END,
+         actual_delivery_date = CASE WHEN $1 IN ('delivered','failed','ghosted') THEN NOW()::date WHEN $1 = 'in_transit' THEN NULL ELSE actual_delivery_date END,
          updated_at = NOW()
      WHERE id = $2 AND user_id = $3
      RETURNING *`,

@@ -3,7 +3,7 @@ import { apiClient } from "@/lib/apiClient";
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export type VehicleType = "bike" | "tricycle" | "van" | "truck";
-export type ShipmentStatus = "pending" | "in_transit" | "delivered" | "failed" | "ghosted" | "recovered";
+export type ShipmentStatus = "pending" | "in_transit" | "delivered" | "failed" | "ghosted";
 export type RiskScore = "low" | "medium" | "high";
 
 export interface Rider {
