@@ -42,7 +42,7 @@ export default function Login() {
         isAdmin ? "Welcome back, admin." : "Welcome back.",
         "Signed in"
       );
-      navigate(isAdmin ? "/admin/dashboard" : "/dashboard", {
+      navigate("/dashboard", {
         replace: true,
       });
     } catch (err) {

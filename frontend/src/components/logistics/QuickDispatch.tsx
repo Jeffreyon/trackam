@@ -110,7 +110,7 @@ export function QuickDispatch({ onDispatched }: Props) {
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl border border-border overflow-hidden">
+          <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl border border-border overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[80vh]">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <div className="flex items-center gap-2">
@@ -126,7 +126,7 @@ export function QuickDispatch({ onDispatched }: Props) {
 
             {/* Step 1: Route picker */}
             {step === "route" && (
-              <div className="p-4">
+              <div className="p-4 overflow-y-auto">
                 {routes.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-sm text-muted-foreground">No saved routes yet.</p>
@@ -163,7 +163,7 @@ export function QuickDispatch({ onDispatched }: Props) {
 
             {/* Step 2: Confirm */}
             {step === "confirm" && selectedRoute && (
-              <div className="p-4 space-y-4">
+              <div className="p-4 space-y-4 overflow-y-auto">
                 <div className="rounded-lg bg-secondary p-3">
                   <p className="text-xs font-semibold text-foreground">{selectedRoute.name}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -280,22 +280,25 @@ export function QuickDispatch({ onDispatched }: Props) {
                 </div>
 
                 {error && <p className="text-xs text-red-600">{error}</p>}
+              </div>
+            )}
 
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={() => setStep("route")}
-                    className="flex-none rounded-md border border-border bg-white px-3 h-9 text-xs font-medium text-foreground hover:bg-secondary transition-colors"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleDispatch}
-                    disabled={submitting}
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-primary h-9 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors"
-                  >
-                    {submitting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Dispatching…</> : "Dispatch →"}
-                  </button>
-                </div>
+            {/* Sticky action row for confirm step */}
+            {step === "confirm" && selectedRoute && (
+              <div className="flex gap-2 px-4 py-3 border-t border-border bg-white shrink-0">
+                <button
+                  onClick={() => setStep("route")}
+                  className="flex-none rounded-md border border-border bg-white px-3 h-9 text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleDispatch}
+                  disabled={submitting}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-primary h-9 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors"
+                >
+                  {submitting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Dispatching…</> : "Dispatch →"}
+                </button>
               </div>
             )}
           </div>
