@@ -3,6 +3,9 @@
 -- Add BVN to riders
 ALTER TABLE riders ADD COLUMN IF NOT EXISTS bvn TEXT;
 
+-- Migrate legacy 'recovered' rows (from pre-OLI recovery flow) back to 'in_transit'
+UPDATE shipments SET status = 'in_transit', updated_at = NOW() WHERE status = 'recovered';
+
 -- Expand shipments status CHECK to include handed_over
 ALTER TABLE shipments DROP CONSTRAINT IF EXISTS shipments_status_check;
 ALTER TABLE shipments ADD CONSTRAINT shipments_status_check
