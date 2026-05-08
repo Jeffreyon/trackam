@@ -4,9 +4,8 @@
 # One-click deploy URL:
 #   https://railway.app/new?template=https://github.com/YOUR_USERNAME/trackam
 #
-# First-deploy checklist (run in backend service shell after deploy):
-#   npm run db:migrate
-#   npm run db:seed:bootstrap-admin
+# First-deploy checklist:
+#   npm run db:seed:bootstrap-admin  (run once in backend service shell)
 
 [deploy]
 numReplicas = 1
@@ -23,7 +22,7 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [services.deploy]
-startCommand = "npm start"
+startCommand = "npm run db:migrate && npm start"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 
