@@ -21,6 +21,8 @@ import AdminRolesPage from "@/pages/admin/AdminRolesPage";
 import ShipmentsPage from "@/pages/logistics/ShipmentsPage";
 import ShipmentDetailPage from "@/pages/logistics/ShipmentDetailPage";
 import WaybillsPage from "@/pages/logistics/WaybillsPage";
+import DispatchRunsPage from "@/pages/logistics/DispatchRunsPage";
+import DispatchRunDetailPage from "@/pages/logistics/DispatchRunDetailPage";
 import RidersPage from "@/pages/logistics/RidersPage";
 import RoutesPage from "@/pages/logistics/RoutesPage";
 import SettingsPage from "@/pages/logistics/SettingsPage";
@@ -52,6 +54,8 @@ const router = createBrowserRouter([
       { path: "shipments", element: <ShipmentsPage /> },
       { path: "shipments/:id", element: <ShipmentDetailPage /> },
       { path: "waybills", element: <WaybillsPage /> },
+      { path: "runs", element: <DispatchRunsPage /> },
+      { path: "runs/:id", element: <DispatchRunDetailPage /> },
       { path: "riders", element: <RidersPage /> },
       { path: "routes", element: <RoutesPage /> },
       { path: "settings", element: <SettingsPage /> },

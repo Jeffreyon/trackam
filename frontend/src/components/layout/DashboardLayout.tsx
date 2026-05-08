@@ -17,26 +17,29 @@ import {
   Menu,
   X,
   FileText,
+  Route,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const NAV_ITEMS = [
-  { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
-  { to: "/dashboard/shipments", label: "Shipments", icon: Package, end: false },
-  { to: "/dashboard/waybills", label: "Waybills", icon: FileText, end: false },
-  { to: "/dashboard/riders", label: "Riders", icon: Users, end: false },
-  { to: "/dashboard/routes", label: "Routes", icon: MapPin, end: false },
-  { to: "/dashboard/settings", label: "Settings", icon: Settings, end: false },
+  { to: "/dashboard",           label: "Overview",  icon: LayoutDashboard, end: true },
+  { to: "/dashboard/waybills",  label: "Waybills",  icon: FileText,        end: false },
+  { to: "/dashboard/runs",      label: "Runs",      icon: Route,           end: false },
+  { to: "/dashboard/shipments", label: "Shipments", icon: Package,         end: false },
+  { to: "/dashboard/riders",    label: "Riders",    icon: Users,           end: false },
+  { to: "/dashboard/routes",    label: "Routes",    icon: MapPin,          end: false },
+  { to: "/dashboard/settings",  label: "Settings",  icon: Settings,        end: false },
 ];
 
 const PAGE_TITLES: Record<string, { title: string; description: string }> = {
-  "/dashboard": { title: "Overview", description: "Your logistics at a glance." },
-  "/dashboard/shipments": { title: "Shipments", description: "Track every order and delivery." },
-  "/dashboard/waybills": { title: "Waybills", description: "All waybills registered on this account via OLI." },
-  "/dashboard/riders": { title: "Riders", description: "Manage your logistics vendors." },
-  "/dashboard/routes": { title: "Routes", description: "Set up your standard delivery lanes." },
-  "/dashboard/settings": { title: "Settings", description: "Fuel rates, business info, and preferences." },
-  "/dashboard/account": { title: "Account", description: "Manage your profile." },
+  "/dashboard":           { title: "Overview",       description: "Your logistics at a glance." },
+  "/dashboard/waybills":  { title: "Waybills",       description: "Claim OLI waybills and join custody legs." },
+  "/dashboard/runs":      { title: "Dispatch Runs",  description: "Group waybills onto vehicle trips and manage departures." },
+  "/dashboard/shipments": { title: "Shipments",      description: "Individual waybill legs and their custody status." },
+  "/dashboard/riders":    { title: "Riders",         description: "Manage your logistics vendors." },
+  "/dashboard/routes":    { title: "Routes",         description: "Set up your standard delivery lanes." },
+  "/dashboard/settings":  { title: "Settings",       description: "Fuel rates, business info, and preferences." },
+  "/dashboard/account":   { title: "Account",        description: "Manage your profile." },
 };
 
 function SidebarContent({

@@ -79,11 +79,18 @@ async function listByUser(userId) {
   const result = await query(
     `SELECT lw.*,
             COUNT(he.id)::int                                  AS handover_count,
-            BOOL_OR(he.receiver_actor_type = 'ACTOR_RECEIVER') AS is_delivered
+            BOOL_OR(he.receiver_actor_type = 'ACTOR_RECEIVER') AS is_delivered,
+            s.id                                               AS shipment_id,
+            drl.run_id,
+            dr.name                                            AS run_name,
+            dr.status                                          AS run_status
      FROM lite_waybills lw
      LEFT JOIN handover_events he ON he.waybill_id = lw.id
+     LEFT JOIN shipments s ON s.waybill_id = lw.id AND s.user_id = $1
+     LEFT JOIN dispatch_run_legs drl ON drl.shipment_id = s.id
+     LEFT JOIN dispatch_runs dr ON dr.id = drl.run_id
      WHERE lw.claimed_by_user_id = $1
-     GROUP BY lw.id
+     GROUP BY lw.id, s.id, drl.run_id, dr.name, dr.status
      ORDER BY lw.claimed_at DESC`,
     [userId]
   );
@@ -91,6 +98,10 @@ async function listByUser(userId) {
     ...mapRow(row),
     handoverCount: row.handover_count ?? 0,
     isDelivered: row.is_delivered ?? false,
+    shipmentId: row.shipment_id || null,
+    runId: row.run_id || null,
+    runName: row.run_name || null,
+    runStatus: row.run_status || null,
   }));
 }
 

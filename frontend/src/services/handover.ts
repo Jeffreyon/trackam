@@ -110,6 +110,11 @@ export interface OperatorWaybill {
   isDelivered: boolean;
   senderName: string;
   receiverName: string;
+  // Dispatch run assignment
+  shipmentId: string | null;
+  runId: string | null;
+  runName: string | null;
+  runStatus: string | null;
 }
 
 export const waybillApi = {
