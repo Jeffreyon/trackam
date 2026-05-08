@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { MapPin, Package, Loader2, CheckCircle2, ShieldCheck, ArrowRight } from "lucide-react"; // Package used in error state
-import { publicHandoverApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type TokenInfo, type HandoverConfirmation } from "@/services/handover";
+import { publicHandoverApi, ACTOR_LABELS, type ActorType, type TokenInfo, type HandoverConfirmation } from "@/services/handover";
 import { PublicNav } from "@/components/layout/PublicNav";
 
 type Phase = "loading" | "token-form" | "waybill-view" | "submitting" | "success" | "error";
 
-const ACTOR_OPTIONS: ActorType[] = ["ACTOR_COURIER", "ACTOR_HUB", "ACTOR_RECEIVER", "ACTOR_SENDER"];
 
 export default function ScanPage() {
   const [params] = useSearchParams();
@@ -16,7 +15,7 @@ export default function ScanPage() {
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
-  const [waybill, setWaybill] = useState<Record<string, unknown> | null>(null);
+  const [waybill] = useState<Record<string, unknown> | null>(null);
   const [confirmation, setConfirmation] = useState<HandoverConfirmation | null>(null);
   const [error, setError] = useState("");
 

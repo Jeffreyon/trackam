@@ -8,6 +8,7 @@ const STATUS_STYLES: Record<ShipmentStatus, string> = {
   failed:      "bg-red-50 text-red-700 border-red-200",
   ghosted:     "bg-orange-50 text-orange-700 border-orange-200",
   handed_over: "bg-purple-50 text-purple-700 border-purple-200",
+  disputed:    "bg-rose-50 text-rose-700 border-rose-200",
 };
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
@@ -17,6 +18,7 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
   failed:      "Failed",
   ghosted:     "Ghosted",
   handed_over: "Handed Over",
+  disputed:    "Disputed",
 };
 
 const RISK_STYLES: Record<RiskScore, string> = {

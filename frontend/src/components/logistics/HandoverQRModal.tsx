@@ -16,12 +16,11 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
   const [actorType, setActorType] = useState<ActorType>("ACTOR_COURIER");
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [, setExpiresAt] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [confirmed, setConfirmed] = useState(false);
   const [confirmedEvent, setConfirmedEvent] = useState<import("@/services/handover").HandoverEvent | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const initialEventCountRef = useRef<number>(-1);
 
   const scanUrl = token

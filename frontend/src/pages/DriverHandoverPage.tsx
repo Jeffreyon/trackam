@@ -57,7 +57,7 @@ export default function DriverHandoverPage() {
   // Handover
   const [receiverActorType, setReceiverActorType] = useState<ActorType>("ACTOR_HUB");
   const [handoverToken, setHandoverToken] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [, setExpiresAt] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const secondsLeftRef = useRef(secondsLeft);
   useEffect(() => { secondsLeftRef.current = secondsLeft; }, [secondsLeft]);
