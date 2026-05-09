@@ -74,6 +74,10 @@ app.use(
 
 app.use(helmet());
 app.use(morgan("dev"));
+
+// Must be mounted before express.json() — needs raw body for HMAC verification
+app.use("/api/oli/webhook", require("./app/oli/oli.webhook"));
+
 app.use(express.json());
 
 ensureStorageDir();
