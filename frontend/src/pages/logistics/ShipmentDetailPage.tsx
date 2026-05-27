@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Loader2, ShieldAlert, Skull, RefreshCw, Handshake, Wifi, AlertTriangle, MapPin, ShieldCheck } from "lucide-react";
 import { shipmentsApi, type Shipment, type StatusLogEntry, type ShipmentStatus } from "@/services/logistics";
+import { apiClient } from "@/lib/apiClient";
 import { handoverApi, publicWaybillApi, ACTOR_LABELS, type HandoverEvent, type ActorType } from "@/services/handover";
 import { formatNaira, formatDate, formatDateTime, formatDistance } from "@/lib/format";
 import { StatusBadge, RiskBadge } from "@/components/logistics/StatusBadge";
@@ -50,13 +51,32 @@ export default function ShipmentDetailPage() {
 
   async function load() {
     if (!id) return;
-    const [s, l, events] = await Promise.all([
-      shipmentsApi.get(id),
-      shipmentsApi.getLog(id),
+
+    let s;
+    try {
+      s = await shipmentsApi.get(id);
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
+        // Shipment not in local DB — try to recover it from OLI switch
+        // (happens for waybills claimed before the local mirroring was added)
+        try {
+          await apiClient.post(`/api/waybill/recover/${id}`);
+          s = await shipmentsApi.get(id); // retry after recovery
+        } catch {
+          return; // recovery failed — component stays with null shipment → "not found"
+        }
+      } else {
+        return;
+      }
+    }
+
+    const [l, events] = await Promise.all([
+      shipmentsApi.getLog(id).catch(() => []),
       handoverApi.getEvents(id).catch(() => []),
     ]);
     setShipment(s);
-    setLog(l);
+    setLog(l as StatusLogEntry[]);
     setHandoverEvents(events);
 
     // Fetch full cross-operator chain if this shipment is waybill-linked
