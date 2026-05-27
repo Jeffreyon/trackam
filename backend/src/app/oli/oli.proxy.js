@@ -26,7 +26,7 @@ function createOliProxy() {
   const httpModule = switchBase.protocol === "https:" ? https : http;
 
   return function oliProxy(req, res) {
-    const targetUrl = new URL(req.url, OLI_SWITCH_URL);
+    const targetUrl = new URL(req.originalUrl, OLI_SWITCH_URL);
 
     const headers = { ...req.headers };
     // Remove hop-by-hop headers
