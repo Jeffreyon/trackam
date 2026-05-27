@@ -4,7 +4,6 @@ import { Package } from "lucide-react";
 import { shipmentsApi, type Shipment, type ShipmentStatus } from "@/services/logistics";
 import { formatNaira, formatDate } from "@/lib/format";
 import { StatusBadge, RiskBadge } from "@/components/logistics/StatusBadge";
-import { QuickDispatch } from "@/components/logistics/QuickDispatch";
 
 const FILTERS: { label: string; value: string }[] = [
   { label: "All", value: "" },
@@ -104,7 +103,6 @@ export default function ShipmentsPage() {
         )}
       </div>
 
-      <QuickDispatch onDispatched={() => load(filter || undefined)} />
     </div>
   );
 }

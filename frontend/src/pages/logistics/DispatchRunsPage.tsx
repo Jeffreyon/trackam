@@ -1,8 +1,9 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Truck, Plus, Package, Loader2, CheckCircle2, Navigation, XCircle, Clock } from "lucide-react";
+import { Truck, Package, CheckCircle2, Navigation, XCircle, Clock } from "lucide-react";
 import { runsApi, type DispatchRun, type RunStatus } from "@/services/runs";
 import { formatNaira } from "@/lib/format";
+import { QuickDispatch } from "@/components/logistics/QuickDispatch";
 
 const STATUS_CONFIG: Record<RunStatus, { label: string; dot: string; badge: string }> = {
   loading:    { label: "Loading at dock", dot: "bg-amber-500",  badge: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -18,22 +19,14 @@ export default function DispatchRunsPage() {
   const [runs, setRuns] = useState<DispatchRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
-  const [creating, setCreating] = useState(false);
-
   useEffect(() => {
+    load();
+  }, []);
+
+  function load() {
     runsApi.list()
       .then((data) => setRuns(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
-  }, []);
-
-  async function handleNewRun() {
-    setCreating(true);
-    try {
-      const run = await runsApi.create({});
-      navigate(`/dashboard/runs/${run.id}`);
-    } finally {
-      setCreating(false);
-    }
   }
 
   const filtered = runs.filter((r) => filter === "all" || r.status === filter);
@@ -58,11 +51,6 @@ export default function DispatchRunsPage() {
             </button>
           ))}
         </div>
-        <button onClick={handleNewRun} disabled={creating}
-          className="inline-flex items-center gap-1.5 rounded-md bg-orange-600 text-white px-3 h-9 text-xs font-semibold hover:bg-orange-700 transition-colors disabled:opacity-60">
-          {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          New run
-        </button>
       </div>
 
       {loading ? (
@@ -121,6 +109,8 @@ export default function DispatchRunsPage() {
           })}
         </div>
       )}
+
+      <QuickDispatch onCreated={load} />
     </div>
   );
 }
