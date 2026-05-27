@@ -213,14 +213,14 @@ export default function WaybillsPage() {
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-white overflow-hidden">
-          <div className="hidden sm:grid grid-cols-[1fr_1.4fr_1fr_auto_auto_auto] gap-4 px-4 py-2.5 border-b border-border bg-secondary/30">
-            {["Waybill", "Route", "Cargo", "Run", "PoH", "Status"].map((h) => (
+          <div className="hidden sm:grid grid-cols-[1fr_1.4fr_1fr_7rem_4rem_7rem] gap-4 px-4 py-2.5 border-b border-border bg-secondary/30">
+            {["Waybill", "Route", "Cargo", "Run", "Handovers", "Status"].map((h) => (
               <p key={h} className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{h}</p>
             ))}
           </div>
           <div className="divide-y divide-border">
             {filtered.map((w) => (
-              <div key={w.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_1fr_auto_auto_auto] gap-2 sm:gap-4 items-center px-4 py-3.5 hover:bg-secondary/20 transition-colors">
+              <div key={w.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_1fr_7rem_4rem_7rem] gap-2 sm:gap-4 items-center px-4 py-3.5 hover:bg-secondary/20 transition-colors">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs font-mono font-semibold text-foreground truncate">{w.waybillNumber}</p>
