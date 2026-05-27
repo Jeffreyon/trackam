@@ -98,6 +98,37 @@ export const publicWaybillApi = {
     axios.get(`${publicBase()}/api/waybill/lookup/${encodeURIComponent(waybillNumber)}`).then((r) => r.data),
 };
 
+// ── Identity verification for TrackWaybillPage ───────────────────────────────
+
+export interface WaybillVerifyResult {
+  token: string;
+  role: "sender" | "receiver";
+  expiresAt: string;
+}
+
+export const waybillVerifyApi = {
+  /** Send OTP to phone — silent success even if phone doesn't match (anti-enumeration) */
+  requestOtp: (waybillId: string, phone: string) =>
+    axios.post<{ sent: boolean }>(
+      `${publicBase()}/api/waybill/${waybillId}/verify/request-otp`,
+      { phone }
+    ).then((r) => r.data),
+
+  /** Submit OTP → returns a 1-hour JWT if correct */
+  confirmOtp: (waybillId: string, phone: string, otp: string) =>
+    axios.post<WaybillVerifyResult>(
+      `${publicBase()}/api/waybill/${waybillId}/verify/confirm-otp`,
+      { phone, otp }
+    ).then((r) => r.data),
+
+  /** Fetch full chain (with names) using the verify JWT */
+  getChain: (waybillId: string, token: string) =>
+    axios.get(
+      `${publicBase()}/api/waybill/${waybillId}/chain/verified`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    ).then((r) => r.data),
+};
+
 export interface OperatorWaybill {
   id: string;
   waybillNumber: string;
