@@ -331,10 +331,10 @@ export default function DriverHandoverPage() {
           <div className="space-y-5">
             <div className="rounded-lg border border-border bg-white p-5 space-y-3">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">You currently hold custody of</p>
-              <p className="text-sm font-semibold text-foreground">{custody.shipment.goodsDescription}</p>
+              <p className="text-sm font-semibold text-foreground">{custody.shipment?.goodsDescription}</p>
               <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <MapPin className="h-3 w-3 shrink-0" />
-                {custody.shipment.pickupLocation} → {custody.shipment.deliveryLocation}
+                {custody.shipment?.pickupLocation} → {custody.shipment?.deliveryLocation}
               </p>
               {custody.waybillNumber && (
                 <p className="font-mono text-[11px] text-muted-foreground">
