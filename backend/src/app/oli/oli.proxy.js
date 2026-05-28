@@ -10,9 +10,28 @@
 const http  = require("http");
 const https = require("https");
 const { URL } = require("url");
+const oliAccountRepo = require("./oli.account.repository");
 
-const OLI_SWITCH_URL = process.env.OLI_SWITCH_URL || "http://localhost:5000";
-const OLI_API_KEY    = process.env.OLI_API_KEY    || "";
+const OLI_SWITCH_URL    = process.env.OLI_SWITCH_URL || "http://localhost:5000";
+const OLI_API_KEY_ENV   = process.env.OLI_API_KEY    || "";
+
+// Per-user key cache — avoids a DB hit on every proxied request
+const _keyCache = new Map(); // userId → { key, expiresAt }
+const KEY_CACHE_TTL_MS = 60_000;
+
+async function _resolveApiKey(userId) {
+  if (!userId) return OLI_API_KEY_ENV;
+  const cached = _keyCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.key;
+  try {
+    const account = await oliAccountRepo.findByUserId(userId);
+    const key = account?.oli_api_key || OLI_API_KEY_ENV;
+    _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
+    return key;
+  } catch {
+    return OLI_API_KEY_ENV;
+  }
+}
 
 /**
  * Returns an Express middleware that proxies the request to the OLI switch.
@@ -27,7 +46,16 @@ function createOliProxy() {
 
   return function oliProxy(req, res) {
     const targetUrl = new URL(req.originalUrl, OLI_SWITCH_URL);
+    const userId = req.user?.uid || null;
 
+    // Resolve API key then forward — async wrapper keeps the existing sync-style proxy logic
+    _resolveApiKey(userId).then((apiKey) => _forward(req, res, targetUrl, apiKey, userId, httpModule, agent, switchBase)).catch(() => {
+      if (!res.headersSent) res.status(502).json({ error: "OLI switch unavailable" });
+    });
+  };
+}
+
+function _forward(req, res, targetUrl, apiKey, userId, httpModule, agent, switchBase) {
     const headers = { ...req.headers };
     // Remove hop-by-hop headers
     delete headers["host"];
@@ -35,8 +63,8 @@ function createOliProxy() {
     delete headers["transfer-encoding"];
 
     // Inject operator credentials
-    headers["x-oli-api-key"] = OLI_API_KEY;
-    headers["x-oli-user-id"] = req.user?.uid || "";
+    headers["x-oli-api-key"] = apiKey;
+    headers["x-oli-user-id"] = userId || "";
 
     const options = {
       hostname: switchBase.hostname,
@@ -70,7 +98,6 @@ function createOliProxy() {
       // Pipe raw stream (for multipart, or already-empty bodies)
       req.pipe(proxyReq, { end: true });
     }
-  };
 }
 
 module.exports = { createOliProxy };

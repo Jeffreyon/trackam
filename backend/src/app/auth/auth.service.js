@@ -1,11 +1,50 @@
 ﻿const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const https = require("https");
+const http = require("http");
 const { v4: uuidv4 } = require("uuid");
 const UsersService = require("../users/users.service");
 const UsersRepository = require("../users/users.repository");
 const SessionsRepository = require("../sessions/sessions.repository");
 const DevicesRepository = require("../devices/devices.repository");
 const EventsRepository = require("../events/events.repository");
+const oliAccountRepo = require("../oli/oli.account.repository");
+
+const OLI_SWITCH_URL = process.env.OLI_SWITCH_URL || "";
+const TRACKAM_FRONTEND_URL = process.env.FRONTEND_URL || "";
+
+// Fire-and-forget — never blocks or fails the Trackam signup
+async function _provisionOliAccount(userId, { email, displayName }) {
+  if (!OLI_SWITCH_URL) return;
+  try {
+    const body = JSON.stringify({
+      name: displayName || email,
+      email,
+      frontendUrl: TRACKAM_FRONTEND_URL,
+    });
+    const url = new URL("/api/operators/signup", OLI_SWITCH_URL);
+    const mod = url.protocol === "https:" ? https : http;
+    const data = await new Promise((resolve, reject) => {
+      const req = mod.request(
+        { hostname: url.hostname, port: url.port, path: url.pathname, method: "POST",
+          headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } },
+        (res) => {
+          let buf = "";
+          res.on("data", (d) => { buf += d; });
+          res.on("end", () => {
+            try { resolve(JSON.parse(buf)); } catch { resolve({}); }
+          });
+        }
+      );
+      req.on("error", reject);
+      req.end(body);
+    });
+    await oliAccountRepo.create(userId, { oliOperatorId: data.operatorId || null });
+  } catch {
+    // Best-effort — create the record without an operator ID so the user still gets pending state
+    await oliAccountRepo.create(userId, {}).catch(() => {});
+  }
+}
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRATION_SECONDS = Number(
@@ -53,6 +92,12 @@ async function signup({ email, password, profile = {} }) {
   const verification = {
     message: "Email verification is a manual step in the local stack",
   };
+
+  // Provision OLI Switch operator account — fire and forget
+  _provisionOliAccount(user.id, {
+    email: user.email,
+    displayName: profile.displayName,
+  });
 
   return {
     idToken,

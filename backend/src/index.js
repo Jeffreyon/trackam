@@ -115,6 +115,9 @@ app.use("/api/shipments", rateLimiter, require("./app/shipments/shipments.contro
 app.use("/api/logistics/dashboard", rateLimiter, require("./app/logistics_dashboard/logistics_dashboard.controller"));
 app.use("/api/logistics/settings", rateLimiter, require("./app/logistics_settings/logistics_settings.controller"));
 
+// OLI account provisioning
+app.use("/api/oli-account", rateLimiter, require("./app/oli/oli.account.controller"));
+
 // OLI Switch proxy — forwards waybill / handover / custodian to the private switch
 const { createOliProxy } = require("./app/oli/oli.proxy");
 const localAuthOptional  = require("./core/middlewares/localAuthOptional");
