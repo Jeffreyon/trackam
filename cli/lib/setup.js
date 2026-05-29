@@ -35,21 +35,24 @@ module.exports = async function setup() {
 
   // Git
   if (!commandExists("git")) {
-    fail("Git is not installed.");
-    if (isWin) {
-      console.log(`\n  Install Git: https://git-scm.com/download/win\n`);
-    } else {
-      console.log(`\n  Install Git: sudo apt install git  (or brew install git)\n`);
+    dim("Git not found, installing...");
+    if (!installGit()) {
+      fail("Could not install Git automatically.");
+      if (isWin) {
+        dim("Install manually: https://git-scm.com/download/win");
+      } else {
+        dim("Install manually: sudo apt install git  (or brew install git)");
+      }
+      process.exit(1);
     }
-    process.exit(1);
   }
   ok("Git");
 
-  // PostgreSQL
+  // PostgreSQL (auto-installs if missing)
   if (!pg.checkPostgresAvailable()) {
     process.exit(1);
   }
-  ok("PostgreSQL");
+  ok(`PostgreSQL`);
 
   // ── 2. Clone or update repo ───────────────────────────────────────────
 
@@ -185,6 +188,50 @@ OLI_TRACKING_ENDPOINT=
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+function installGit() {
+  try {
+    if (isWin) {
+      if (commandExists("winget")) {
+        run("winget install -e --id Git.Git --accept-source-agreements --accept-package-agreements");
+        // Refresh PATH — winget adds Git to system PATH but current session won't have it
+        const gitPath = "C:\\Program Files\\Git\\cmd";
+        if (require("fs").existsSync(gitPath)) {
+          process.env.PATH = `${gitPath};${process.env.PATH}`;
+        }
+        return commandExists("git");
+      }
+      if (commandExists("choco")) {
+        run("choco install git --yes");
+        return commandExists("git");
+      }
+    } else if (process.platform === "darwin") {
+      if (commandExists("brew")) {
+        run("brew install git");
+        return true;
+      }
+      // macOS also auto-prompts xcode-select on `git`, try that
+      run("xcode-select --install", { ignoreError: true });
+      return commandExists("git");
+    } else {
+      if (commandExists("apt-get")) {
+        run("sudo apt-get update -qq && sudo apt-get install -y -qq git");
+        return true;
+      }
+      if (commandExists("dnf")) {
+        run("sudo dnf install -y git");
+        return true;
+      }
+      if (commandExists("pacman")) {
+        run("sudo pacman -S --noconfirm git");
+        return true;
+      }
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
 
 function extractEnvVar(envContent, name) {
   const match = envContent.match(new RegExp(`^${name}=(.*)$`, "m"));

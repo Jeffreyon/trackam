@@ -12,7 +12,7 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const { TRACKAM_DIR } = require("./paths");
-const { ok, warn, fail, dim, commandExists, isWin } = require("./helpers");
+const { ok, warn, fail, dim, step, commandExists, run, isWin } = require("./helpers");
 
 const PG_PORT = 6429;
 const PG_HOST = "127.0.0.1";
@@ -30,23 +30,18 @@ function checkPostgresAvailable() {
   const required = ["initdb", "pg_ctl", "pg_isready", "psql"];
   const missing = required.filter((cmd) => !commandExists(cmd));
 
-  if (missing.length > 0) {
-    fail(`PostgreSQL commands not found: ${missing.join(", ")}`);
-    console.log();
-    if (isWin) {
-      dim("Install PostgreSQL: https://www.postgresql.org/download/windows/");
-      dim("Make sure to check 'Add to PATH' during installation.");
-      dim("");
-      dim("Or with Chocolatey:  choco install postgresql");
-    } else if (process.platform === "darwin") {
-      dim("Install with Homebrew:  brew install postgresql@16");
-    } else {
-      dim("Install:  sudo apt install postgresql postgresql-client");
-    }
-    console.log();
-    return false;
+  if (missing.length === 0) return true;
+
+  // PostgreSQL not found — try to install it automatically
+  dim("PostgreSQL not found, installing automatically...");
+
+  if (isWin) {
+    return installPostgresWindows();
+  } else if (process.platform === "darwin") {
+    return installPostgresMac();
+  } else {
+    return installPostgresLinux();
   }
-  return true;
 }
 
 function ensurePostgresRunning() {
@@ -159,6 +154,143 @@ function stopPostgres() {
   });
 }
 
+// ── Auto-install PostgreSQL ──────────────────────────────────────────────
+
+function installPostgresWindows() {
+  // Try winget first (built into Windows 10 1709+ and Windows 11)
+  if (commandExists("winget")) {
+    dim("Installing PostgreSQL via winget...");
+    try {
+      run("winget install -e --id PostgreSQL.PostgreSQL.16 --accept-source-agreements --accept-package-agreements", { silent: false });
+      // winget installs to Program Files — add to PATH for this session
+      const pgPaths = findPostgresBinWindows();
+      if (pgPaths) {
+        process.env.PATH = `${pgPaths};${process.env.PATH}`;
+        ok("PostgreSQL installed via winget");
+        dim("You may need to restart your terminal for PATH changes to persist.");
+        return true;
+      }
+    } catch {
+      warn("winget install failed, trying Chocolatey...");
+    }
+  }
+
+  // Try Chocolatey
+  if (commandExists("choco")) {
+    dim("Installing PostgreSQL via Chocolatey...");
+    try {
+      run("choco install postgresql16 --yes --params '/Password:postgres'", { silent: false });
+      const pgPaths = findPostgresBinWindows();
+      if (pgPaths) {
+        process.env.PATH = `${pgPaths};${process.env.PATH}`;
+        ok("PostgreSQL installed via Chocolatey");
+        return true;
+      }
+    } catch {
+      warn("Chocolatey install failed.");
+    }
+  }
+
+  fail("Could not install PostgreSQL automatically.");
+  dim("Please install PostgreSQL 16 manually:");
+  dim("  https://www.postgresql.org/download/windows/");
+  dim("  Make sure to check 'Add to PATH' during installation.");
+  console.log();
+  return false;
+}
+
+function installPostgresMac() {
+  if (commandExists("brew")) {
+    dim("Installing PostgreSQL via Homebrew...");
+    try {
+      run("brew install postgresql@16");
+      // Homebrew may need PATH addition
+      try { run("brew link postgresql@16 --force", { ignoreError: true }); } catch { /* ok */ }
+      ok("PostgreSQL installed via Homebrew");
+      return true;
+    } catch {
+      warn("Homebrew install failed.");
+    }
+  }
+
+  fail("Could not install PostgreSQL automatically.");
+  dim("Install Homebrew first:  /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"");
+  dim("Then:  brew install postgresql@16");
+  console.log();
+  return false;
+}
+
+function installPostgresLinux() {
+  // Detect package manager
+  if (commandExists("apt-get")) {
+    dim("Installing PostgreSQL via apt...");
+    try {
+      run("sudo apt-get update -qq");
+      run("sudo apt-get install -y -qq postgresql postgresql-client");
+      // Stop the system service — we manage our own instance
+      run("sudo systemctl stop postgresql", { ignoreError: true });
+      run("sudo systemctl disable postgresql", { ignoreError: true });
+      ok("PostgreSQL installed via apt");
+      return true;
+    } catch {
+      warn("apt install failed.");
+    }
+  } else if (commandExists("dnf")) {
+    dim("Installing PostgreSQL via dnf...");
+    try {
+      run("sudo dnf install -y postgresql-server postgresql");
+      run("sudo systemctl stop postgresql", { ignoreError: true });
+      run("sudo systemctl disable postgresql", { ignoreError: true });
+      ok("PostgreSQL installed via dnf");
+      return true;
+    } catch {
+      warn("dnf install failed.");
+    }
+  } else if (commandExists("pacman")) {
+    dim("Installing PostgreSQL via pacman...");
+    try {
+      run("sudo pacman -S --noconfirm postgresql");
+      ok("PostgreSQL installed via pacman");
+      return true;
+    } catch {
+      warn("pacman install failed.");
+    }
+  }
+
+  fail("Could not install PostgreSQL automatically.");
+  dim("Please install PostgreSQL manually for your distribution.");
+  console.log();
+  return false;
+}
+
+/**
+ * Find PostgreSQL bin directory on Windows.
+ * Checks common install locations since winget/choco may not update PATH immediately.
+ */
+function findPostgresBinWindows() {
+  const candidates = [];
+
+  // Check Program Files for any PostgreSQL version
+  const programFiles = process.env["ProgramFiles"] || "C:\\Program Files";
+  try {
+    const pgDir = path.join(programFiles, "PostgreSQL");
+    if (fs.existsSync(pgDir)) {
+      const versions = fs.readdirSync(pgDir).sort().reverse(); // newest first
+      for (const v of versions) {
+        const binDir = path.join(pgDir, v, "bin");
+        if (fs.existsSync(path.join(binDir, "psql.exe"))) {
+          candidates.push(binDir);
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  // Also check if initdb is now on PATH after install
+  if (commandExists("initdb")) return null; // already on PATH
+
+  return candidates[0] || null;
+}
+
 // ── Internals ─────────────────────────────────────────────────────────────
 
 function isPostgresReady() {
@@ -172,7 +304,6 @@ function isPostgresReady() {
 }
 
 function sleepMs(ms) {
-  // Cross-platform blocking sleep without shelling out
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
