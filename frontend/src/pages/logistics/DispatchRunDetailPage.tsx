@@ -50,10 +50,26 @@ export default function DispatchRunDetailPage() {
 
   async function loadRun() {
     if (!id) return;
-    const data = await runsApi.get(id);
+    const [data, waybills] = await Promise.all([
+      runsApi.get(id),
+      waybillApi.list().catch(() => [] as OperatorWaybill[]),
+    ]);
     if (!data || typeof data !== "object") return;
-    // Ensure legs is always an array, even if API returns null/undefined
-    const safe = { ...data, legs: Array.isArray(data.legs) ? data.legs : [] };
+    const legs = Array.isArray(data.legs) ? data.legs : [];
+
+    // Enrich legs with OLI handover counts (local table may be empty)
+    const waybillArr = Array.isArray(waybills) ? waybills : [];
+    const oliMap = new Map(waybillArr.map((w) => [w.shipmentId, w]));
+    const enriched = legs.map((leg) => {
+      const oli = oliMap.get(leg.shipmentId);
+      return {
+        ...leg,
+        handoverCount: oli?.handoverCount ?? leg.handoverCount ?? 0,
+        isDelivered: oli?.isDelivered ?? false,
+      };
+    });
+
+    const safe = { ...data, legs: enriched };
     setRun(safe);
     setNameInput(safe.name ?? "");
   }
@@ -120,6 +136,33 @@ export default function DispatchRunDetailPage() {
     const t = setInterval(() => setHandoverSecondsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, [handoverSecondsLeft]);
+
+  // Poll for handover completion while QR modal is open
+  const [handoverConfirmed, setHandoverConfirmed] = useState(false);
+  useEffect(() => {
+    if (!handoverQrOpen || !handoverToken || handoverConfirmed) return;
+    const poll = setInterval(async () => {
+      try {
+        const waybills = await waybillApi.list();
+        const arr = Array.isArray(waybills) ? waybills : [];
+        const legShipmentIds = new Set((run?.legs ?? []).map((l) => l.shipmentId));
+        const allHandedOver = arr
+          .filter((w) => w.shipmentId && legShipmentIds.has(w.shipmentId))
+          .every((w) => w.handoverCount > 0);
+        if (allHandedOver && arr.length > 0) {
+          setHandoverConfirmed(true);
+          await loadRun();
+          // Auto-close modal after a brief delay so user sees the confirmation
+          setTimeout(() => {
+            setHandoverQrOpen(false);
+            setHandoverToken(null);
+            setHandoverConfirmed(false);
+          }, 3000);
+        }
+      } catch { /* ignore polling errors */ }
+    }, 5000);
+    return () => clearInterval(poll);
+  }, [handoverQrOpen, handoverToken, handoverConfirmed]);
 
   async function handleHandoverToDriver() {
     if (!run?.legs.length) return;
@@ -269,8 +312,8 @@ export default function DispatchRunDetailPage() {
           </button>
         )}
 
-        {/* Hand over all shipments to driver */}
-        {run.status === "in_transit" && run.legs.length > 0 && (
+        {/* Hand over all shipments to driver — hide once all legs have been handed over */}
+        {run.status === "in_transit" && run.legs.length > 0 && run.legs.some((l) => l.handoverCount === 0) && (
           <div className="space-y-2">
             <button
               onClick={handleHandoverToDriver}
@@ -382,7 +425,7 @@ export default function DispatchRunDetailPage() {
                   <div className="flex items-center gap-3 mt-1">
                     <StatusBadge status={leg.status as ShipmentStatus} />
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <ShieldCheck className="h-3 w-3" />{leg.handoverCount} PoH
+                      <ShieldCheck className="h-3 w-3" />{leg.handoverCount} Handover{leg.handoverCount !== 1 ? "s" : ""}
                     </span>
                     {leg.shipmentValue > 0 && (
                       <span className="text-[10px] text-muted-foreground">{formatNaira(leg.shipmentValue)}</span>
@@ -428,36 +471,52 @@ export default function DispatchRunDetailPage() {
                 </button>
               </div>
               <div className="p-5 flex flex-col items-center gap-4">
-                <div className="rounded-lg border border-border p-3 bg-white">
-                  <QRCodeSVG value={scanUrl} size={200} />
-                </div>
-                {handoverSecondsLeft > 0 ? (
-                  <p className="text-xs font-medium text-amber-700">
-                    Expires in {mins}:{String(secs).padStart(2, "0")}
-                  </p>
+                {handoverConfirmed ? (
+                  <>
+                    <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                      <CheckCircle2 className="h-8 w-8 text-green-600" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-foreground">Handover confirmed</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        All {run.legs.length} shipment{run.legs.length !== 1 ? "s" : ""} transferred to driver. Closing...
+                      </p>
+                    </div>
+                  </>
                 ) : (
-                  <p className="text-xs font-medium text-red-600">Expired</p>
+                  <>
+                    <div className="rounded-lg border border-border p-3 bg-white">
+                      <QRCodeSVG value={scanUrl} size={200} />
+                    </div>
+                    {handoverSecondsLeft > 0 ? (
+                      <p className="text-xs font-medium text-amber-700">
+                        Expires in {mins}:{String(secs).padStart(2, "0")}
+                      </p>
+                    ) : (
+                      <p className="text-xs font-medium text-red-600">Expired</p>
+                    )}
+                    <div className="w-full space-y-2">
+                      <button
+                        onClick={async () => { await navigator.clipboard.writeText(scanUrl); }}
+                        disabled={handoverSecondsLeft === 0}
+                        className="w-full inline-flex items-center justify-center rounded-md border border-border h-9 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+                      >
+                        Copy link to share
+                      </button>
+                      {handoverSecondsLeft === 0 && (
+                        <button
+                          onClick={() => { setHandoverQrOpen(false); setHandoverToken(null); }}
+                          className="w-full inline-flex items-center justify-center rounded-md bg-purple-700 text-white h-9 text-xs font-semibold hover:bg-purple-800"
+                        >
+                          Generate new code
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      The driver will receive a custody link via SMS after scanning.
+                    </p>
+                  </>
                 )}
-                <div className="w-full space-y-2">
-                  <button
-                    onClick={async () => { await navigator.clipboard.writeText(scanUrl); }}
-                    disabled={handoverSecondsLeft === 0}
-                    className="w-full inline-flex items-center justify-center rounded-md border border-border h-9 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
-                  >
-                    Copy link to share
-                  </button>
-                  {handoverSecondsLeft === 0 && (
-                    <button
-                      onClick={() => { setHandoverQrOpen(false); setHandoverToken(null); }}
-                      className="w-full inline-flex items-center justify-center rounded-md bg-purple-700 text-white h-9 text-xs font-semibold hover:bg-purple-800"
-                    >
-                      Generate new code
-                    </button>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground text-center">
-                  The driver will receive a custody link via SMS after scanning.
-                </p>
               </div>
             </div>
           </div>
