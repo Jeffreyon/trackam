@@ -79,10 +79,27 @@ export default function ShipmentDetailPage() {
     setLog(l as StatusLogEntry[]);
     setHandoverEvents(events);
 
-    // Fetch full cross-operator chain if this shipment is waybill-linked
+    // Fetch full cross-operator chain and sync local status if handovers happened
     if (s.waybillId) {
       publicWaybillApi.getChain(s.waybillId)
-        .then((data: { chain: ChainEvent[] }) => setWaybillChain(data.chain))
+        .then(async (data: { chain: ChainEvent[] }) => {
+          setWaybillChain(data.chain);
+          if (
+            data.chain.length > 0 &&
+            ["pending", "in_transit"].includes(s.status)
+          ) {
+            try {
+              const updated = await shipmentsApi.updateStatus(
+                s.id,
+                "handed_over" as ShipmentStatus,
+                "Auto-synced from OLI custody chain"
+              );
+              setShipment(updated);
+              const freshLog = await shipmentsApi.getLog(s.id);
+              setLog(freshLog as StatusLogEntry[]);
+            } catch {}
+          }
+        })
         .catch(() => {});
     }
   }

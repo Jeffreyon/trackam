@@ -65,23 +65,23 @@ export default function WaybillGeneratorPage() {
     setForm(BLANK_FORM);
   }
 
-  const inputCls = "w-full rounded-md border border-input bg-white px-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
-  const labelCls = "text-xs font-medium text-foreground block mb-1.5";
+  const inputCls = "w-full rounded-md border border-white/[0.08] bg-white/[0.06] px-3 h-10 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-orange-500/40";
+  const labelCls = "text-xs font-medium text-white block mb-1.5";
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-[#060d18] text-white">
       <PublicNav />
 
-      <div className="max-w-xl mx-auto px-4 py-8">
+      <div className="max-w-xl mx-auto px-4 pt-24 pb-12">
         {/* Hero */}
         <div className="mb-7">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 border border-orange-200 px-3 py-1 text-[11px] font-medium text-orange-700 mb-3">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 px-3 py-1 text-[11px] font-medium text-orange-400 mb-3">
             Open Logistics Interconnect (OLI)
           </div>
-          <h1 className="text-2xl font-bold text-stone-900 leading-tight">
+          <h1 className="text-2xl font-bold text-white leading-tight">
             Generate a free digital waybill
           </h1>
-          <p className="text-sm text-stone-500 mt-2">
+          <p className="text-sm text-stone-400 mt-2">
             Creates a QR-coded waybill compatible with any OLI-enabled logistics app. No account needed.
           </p>
         </div>
@@ -89,32 +89,32 @@ export default function WaybillGeneratorPage() {
         {/* Done */}
         {phase === "done" && result ? (
           <div className="space-y-4">
-            <div className="rounded-xl border border-green-200 bg-white p-5 text-center space-y-2">
+            <div className="rounded-xl border border-green-500/20 bg-white/[0.03] p-5 text-center space-y-2">
               <div className="flex justify-center">
-                <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-full bg-green-500/15 flex items-center justify-center">
                   <CheckCircle2 className="h-6 w-6 text-green-600" />
                 </div>
               </div>
-              <p className="text-base font-semibold text-foreground">Waybill created</p>
-              <p className="text-sm text-muted-foreground font-mono">{result.waybillNumber}</p>
+              <p className="text-base font-semibold text-white">Waybill created</p>
+              <p className="text-sm text-stone-400 font-mono">{result.waybillNumber}</p>
             </div>
 
             {result.claimToken && (
-              <div className="rounded-xl border-2 border-orange-300 bg-orange-50 p-5 space-y-3">
+              <div className="rounded-xl border-2 border-orange-500/30 bg-orange-500/10 p-5 space-y-3">
                 <div>
-                  <p className="text-xs font-semibold text-orange-800 uppercase tracking-wide">Operator Claim Code</p>
-                  <p className="text-[11px] text-orange-600 mt-0.5">Give this to the courier or logistics operator at pickup.</p>
+                  <p className="text-xs font-semibold text-orange-300 uppercase tracking-wide">Operator Claim Code</p>
+                  <p className="text-[11px] text-orange-400/80 mt-0.5">Give this to the courier or logistics operator at pickup.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <p className="text-3xl font-bold font-mono tracking-widest text-orange-900 flex-1">{result.claimToken}</p>
+                  <p className="text-3xl font-bold font-mono tracking-widest text-orange-200 flex-1">{result.claimToken}</p>
                   <button
                     onClick={() => navigator.clipboard.writeText(result!.claimToken!)}
-                    className="rounded-md border border-orange-300 bg-white px-3 h-9 text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors inline-flex items-center gap-1.5"
+                    className="rounded-md border border-orange-500/30 bg-white/[0.03] px-3 h-9 text-xs font-medium text-orange-400 hover:bg-orange-500/20 transition-colors inline-flex items-center gap-1.5"
                   >
                     <Copy className="h-3.5 w-3.5" /> Copy
                   </button>
                 </div>
-                <p className="text-[11px] text-orange-600">
+                <p className="text-[11px] text-orange-400/80">
                   Single-use · The operator enters this code with the waybill number to register the shipment.
                 </p>
               </div>
@@ -125,24 +125,24 @@ export default function WaybillGeneratorPage() {
                 href={publicWaybillApi.pdfUrl(result.id)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-stone-900 text-white h-10 text-sm font-medium hover:bg-stone-800 transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-orange-600 text-white h-10 text-sm font-medium hover:bg-orange-700 transition-colors"
               >
                 <Download className="h-4 w-4" /> Download PDF
               </a>
               <a
                 href={`/track/${result.id}`}
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-white text-foreground h-10 text-sm font-medium hover:bg-stone-50 transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-white/[0.06] bg-white/[0.03] text-white h-10 text-sm font-medium hover:bg-white/[0.05] transition-colors"
               >
                 <ExternalLink className="h-4 w-4" /> View tracking page
               </a>
               <button
                 onClick={handleReset}
-                className="inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 text-xs text-stone-400 hover:text-white transition-colors"
               >
                 Generate another
               </button>
             </div>
-            <p className="text-[11px] text-center text-muted-foreground">
+            <p className="text-[11px] text-center text-stone-400">
               The PDF QR code links to the tracking page. Anyone can scan it to see every custody event.
             </p>
           </div>
@@ -150,8 +150,8 @@ export default function WaybillGeneratorPage() {
           /* Form */
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Sender */}
-            <div className="rounded-lg border border-border bg-white p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sender</p>
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 space-y-3">
+              <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Sender</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Full name <span className="text-red-500">*</span></label>
@@ -169,8 +169,8 @@ export default function WaybillGeneratorPage() {
             </div>
 
             {/* Receiver */}
-            <div className="rounded-lg border border-border bg-white p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Receiver</p>
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 space-y-3">
+              <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Receiver</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Full name <span className="text-red-500">*</span></label>
@@ -192,8 +192,8 @@ export default function WaybillGeneratorPage() {
             </div>
 
             {/* Cargo */}
-            <div className="rounded-lg border border-border bg-white p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Cargo</p>
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 space-y-3">
+              <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Cargo</p>
               <div>
                 <label className={labelCls}>Goods description <span className="text-red-500">*</span></label>
                 <input required {...field("goodsDescription")} placeholder="e.g. 10 cartons of electronics" className={inputCls} />
@@ -210,7 +210,7 @@ export default function WaybillGeneratorPage() {
               </div>
             </div>
 
-            {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>}
+            {error && <p className="text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">{error}</p>}
 
             <button
               type="submit"
@@ -222,7 +222,7 @@ export default function WaybillGeneratorPage() {
                 : <><ArrowRight className="h-4 w-4" /> Generate waybill</>}
             </button>
 
-            <p className="text-[11px] text-center text-muted-foreground">
+            <p className="text-[11px] text-center text-stone-400">
               By generating a waybill you agree to the OLI open data terms.{" "}
               <a href="https://github.com/open-logistics-ng" target="_blank" rel="noopener noreferrer" className="underline">Learn more</a>
             </p>
