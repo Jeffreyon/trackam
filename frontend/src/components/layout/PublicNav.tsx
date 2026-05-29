@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Package, Github, Menu, X, Search, Loader2, FileText, LayoutDashboard } from "lucide-react";
+import { Package, Github, Menu, X, Search, Loader2, FileText } from "lucide-react";
 import { publicWaybillApi } from "@/services/handover";
 
 const NAV_LINKS = [
