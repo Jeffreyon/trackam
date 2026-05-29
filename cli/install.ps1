@@ -57,8 +57,16 @@ if (-not (Test-Path (Join-Path $tempDir "cli"))) {
     exit 1
 }
 
+# Pack the CLI into a tarball (avoids npm symlinking to the temp dir)
 $cliDir = Join-Path $tempDir "cli"
-try { & npm install -g $cliDir 2>$null } catch {}
+$prevDir = Get-Location
+Set-Location $cliDir
+try { & npm pack 2>$null } catch {}
+$tarball = (Get-ChildItem -Filter "trackam-*.tgz" | Select-Object -First 1).FullName
+if ($tarball) {
+    try { & npm install -g $tarball 2>$null } catch {}
+}
+Set-Location $prevDir
 
 # Clean up temp dir
 Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue

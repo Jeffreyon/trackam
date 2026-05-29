@@ -45,7 +45,11 @@ echo "  Installing trackam CLI..."
 TEMP_DIR=$(mktemp -d)
 git clone --depth 1 https://github.com/Jeffreyon/trackam.git "$TEMP_DIR" 2>/dev/null
 
-npm install -g "$TEMP_DIR/cli" 2>/dev/null
+# Pack into tarball to avoid npm symlinking to the temp dir
+cd "$TEMP_DIR/cli"
+npm pack 2>/dev/null
+npm install -g trackam-*.tgz 2>/dev/null
+cd - >/dev/null
 
 rm -rf "$TEMP_DIR"
 
