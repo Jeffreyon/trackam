@@ -92,7 +92,9 @@ function ensurePostgresRunning() {
 
     if (start.status !== 0 && !isPostgresReady()) {
       fail("Failed to start PostgreSQL.");
-      dim(`Check the log: ${PG_LOG}`);
+      dim(`Log file: ${PG_LOG}`);
+      printLogTail(PG_LOG);
+      checkPortConflict(PG_PORT);
       return false;
     }
   }
@@ -100,7 +102,9 @@ function ensurePostgresRunning() {
   // Wait for ready
   if (!waitForPostgres()) {
     fail("PostgreSQL started but isn't accepting connections.");
-    dim(`Check the log: ${PG_LOG}`);
+    dim(`Log file: ${PG_LOG}`);
+    printLogTail(PG_LOG);
+    checkPortConflict(PG_PORT);
     return false;
   }
 
@@ -314,6 +318,44 @@ function waitForPostgres(timeoutMs = 20_000) {
     sleepMs(500);
   }
   return false;
+}
+
+function printLogTail(logFile) {
+  try {
+    const content = fs.readFileSync(logFile, "utf8");
+    const lines = content.trim().split("\n");
+    const tail = lines.slice(-10).join("\n");
+    if (tail) {
+      console.log();
+      console.log(tail);
+      console.log();
+    }
+  } catch {
+    dim("(no log file found)");
+  }
+}
+
+function checkPortConflict(port) {
+  try {
+    let output;
+    if (isWin) {
+      output = spawnSync("netstat", ["-ano"], { encoding: "utf8", stdio: "pipe" }).stdout || "";
+      const line = output.split("\n").find((l) => l.includes(`:${port}`) && l.includes("LISTENING"));
+      if (line) {
+        warn(`Port ${port} is already in use:`);
+        dim(line.trim());
+        dim("Another PostgreSQL instance or service may be using this port.");
+      }
+    } else {
+      output = spawnSync("lsof", ["-i", `:${port}`], { encoding: "utf8", stdio: "pipe" }).stdout || "";
+      if (output.trim()) {
+        warn(`Port ${port} is already in use:`);
+        dim(output.trim().split("\n").slice(0, 3).join("\n"));
+      }
+    }
+  } catch {
+    // Diagnostics — don't fail if the check itself errors
+  }
 }
 
 module.exports = {
