@@ -2,6 +2,7 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const { BACKEND_DIR, FRONTEND_DIR, PID_FILE, isInstalled } = require("./paths");
 const { step, ok, fail, dim, isWin } = require("./helpers");
+const pg = require("./postgres");
 
 module.exports = function start() {
   if (!isInstalled()) {
@@ -19,9 +20,16 @@ module.exports = function start() {
         process.exit(1);
       }
     } catch {
-      // Stale PID file — remove it
+      // Stale PID file
     }
     fs.unlinkSync(PID_FILE);
+  }
+
+  // Ensure PostgreSQL is running
+  step("Starting database");
+  if (!pg.ensurePostgresRunning()) {
+    fail("Cannot start without PostgreSQL.");
+    process.exit(1);
   }
 
   step("Starting Trackam");
@@ -29,7 +37,7 @@ module.exports = function start() {
   const pids = [];
 
   // Start backend
-  dim("Starting backend...");
+  dim("Starting backend on port 4429...");
   const backend = spawn("npm", ["run", "dev"], {
     cwd: BACKEND_DIR,
     stdio: "ignore",
@@ -42,7 +50,7 @@ module.exports = function start() {
   ok(`Backend started (PID ${backend.pid})`);
 
   // Start frontend
-  dim("Starting frontend...");
+  dim("Starting frontend on port 3429...");
   const frontend = spawn("npm", ["run", "dev"], {
     cwd: FRONTEND_DIR,
     stdio: "ignore",
@@ -62,6 +70,7 @@ module.exports = function start() {
 
     Frontend:  http://127.0.0.1:3429
     Backend:   http://127.0.0.1:4429
+    Database:  PostgreSQL on port ${pg.PG_PORT}
 
   Stop with:  trackam stop
 `);

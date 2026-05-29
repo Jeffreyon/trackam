@@ -1,6 +1,7 @@
 const fs = require("fs");
 const { PID_FILE, isInstalled } = require("./paths");
 const { ok, warn, fail, dim } = require("./helpers");
+const pg = require("./postgres");
 
 module.exports = function status() {
   console.log();
@@ -13,8 +14,20 @@ module.exports = function status() {
 
   ok("Trackam is installed");
 
+  // Database
+  const { spawnSync } = require("child_process");
+  const pgReady = spawnSync("pg_isready", ["-h", pg.PG_HOST, "-p", String(pg.PG_PORT), "-U", pg.PG_USER], {
+    encoding: "utf8", stdio: "pipe",
+  });
+  if (pgReady.status === 0) {
+    ok(`Database running on port ${pg.PG_PORT}`);
+  } else {
+    warn("Database is not running");
+  }
+
+  // App processes
   if (!fs.existsSync(PID_FILE)) {
-    dim("Not running. Start with: trackam start");
+    dim("App not running. Start with: trackam start");
     console.log();
     return;
   }
@@ -41,7 +54,6 @@ module.exports = function status() {
 
   if (!anyAlive) {
     dim("No processes alive. Run 'trackam start' to restart.");
-    // Clean up stale PID file
     fs.unlinkSync(PID_FILE);
   }
 

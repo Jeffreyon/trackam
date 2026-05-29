@@ -1,10 +1,12 @@
 const fs = require("fs");
 const { PID_FILE } = require("./paths");
 const { step, ok, warn, dim, isWin } = require("./helpers");
+const pg = require("./postgres");
 
 module.exports = function stop() {
   if (!fs.existsSync(PID_FILE)) {
     warn("No running Trackam processes found.");
+    pg.stopPostgres();
     return;
   }
 
@@ -16,6 +18,7 @@ module.exports = function stop() {
   } catch {
     warn("Could not read PID file. Cleaning up.");
     fs.unlinkSync(PID_FILE);
+    pg.stopPostgres();
     return;
   }
 
@@ -35,5 +38,11 @@ module.exports = function stop() {
   }
 
   fs.unlinkSync(PID_FILE);
+
+  // Stop PostgreSQL
+  dim("Stopping database...");
+  pg.stopPostgres();
+  ok("Database stopped");
+
   console.log();
 };
