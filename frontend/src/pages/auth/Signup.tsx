@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { setAuthToken } from "@/lib/authToken";
 import { signup } from "@/services/auth.api";
 import { AuthLayout } from "@/components/layout/AuthLayout";
@@ -52,11 +53,11 @@ export default function Signup() {
       footer={
         <span>
           By signing up, you agree to our{" "}
-          <a href="#" className="underline underline-offset-2">
+          <a href="#" className="text-stone-400 hover:text-white transition-colors underline underline-offset-2">
             Terms of Service
           </a>{" "}
           and{" "}
-          <a href="#" className="underline underline-offset-2">
+          <a href="#" className="text-stone-400 hover:text-white transition-colors underline underline-offset-2">
             Privacy Policy
           </a>
           .
@@ -64,8 +65,14 @@ export default function Signup() {
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-2">
-          <label className="block text-sm font-medium" htmlFor="companyName">
+        {serverError && (
+          <p className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2.5 text-xs text-red-400">
+            {serverError}
+          </p>
+        )}
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-stone-300" htmlFor="companyName">
             Company name
           </label>
           <input
@@ -73,71 +80,74 @@ export default function Signup() {
             type="text"
             placeholder="e.g. Fastline Logistics"
             {...register("companyName", { required: "Company name is required" })}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="w-full rounded-lg bg-white/[0.06] border border-white/[0.08] px-3 h-10 text-sm text-white placeholder:text-stone-600 outline-none focus:border-orange-500/40 focus:ring-1 focus:ring-orange-500/20 transition-colors"
           />
           {errors.companyName && (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-xs text-red-400" role="alert">
               {errors.companyName.message}
             </p>
           )}
         </div>
 
-        <div className="space-y-2">
-          <label className="block text-sm font-medium" htmlFor="email">
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-stone-300" htmlFor="email">
             Work email
           </label>
           <input
             id="email"
             type="email"
+            autoComplete="email"
             placeholder="you@yourcompany.com"
             {...register("email", { required: "Email is required" })}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="w-full rounded-lg bg-white/[0.06] border border-white/[0.08] px-3 h-10 text-sm text-white placeholder:text-stone-600 outline-none focus:border-orange-500/40 focus:ring-1 focus:ring-orange-500/20 transition-colors"
           />
           {errors.email && (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-xs text-red-400" role="alert">
               {errors.email.message}
             </p>
           )}
         </div>
 
-        <div className="space-y-2">
-          <label className="block text-sm font-medium" htmlFor="password">
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-stone-300" htmlFor="password">
             Password
           </label>
           <input
             id="password"
             type="password"
+            autoComplete="new-password"
             {...register("password", {
               required: "Password is required",
               minLength: { value: 8, message: "Password must be at least 8 characters" },
             })}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="w-full rounded-lg bg-white/[0.06] border border-white/[0.08] px-3 h-10 text-sm text-white placeholder:text-stone-600 outline-none focus:border-orange-500/40 focus:ring-1 focus:ring-orange-500/20 transition-colors"
           />
           {errors.password && (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-xs text-red-400" role="alert">
               {errors.password.message}
             </p>
           )}
         </div>
 
-        {serverError && (
-          <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {serverError}
-          </p>
-        )}
-
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+          className="w-full rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 h-10 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
         >
-          {loading ? "Creating account…" : "Create account"}
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Creating account…
+            </>
+          ) : (
+            "Create account"
+          )}
         </button>
 
         {/* What happens next */}
-        <div className="rounded-md bg-muted/60 px-3 py-2.5 space-y-1">
-          <p className="text-xs font-medium text-foreground">What happens next</p>
-          <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
+        <div className="rounded-lg bg-white/[0.04] border border-white/[0.06] px-3.5 py-3 space-y-1.5">
+          <p className="text-xs font-medium text-stone-300">What happens next</p>
+          <ol className="text-xs text-stone-500 space-y-0.5 list-decimal list-inside">
             <li>Your Trackam account is created immediately</li>
             <li>Your OLI Switch operator account is submitted for approval</li>
             <li>You'll receive an API key by email once approved</li>
@@ -145,10 +155,10 @@ export default function Signup() {
           </ol>
         </div>
 
-        <p className="text-xs text-center text-muted-foreground">
+        <p className="text-xs text-center text-stone-500">
           Already have an account?{" "}
-          <Link to="/auth/login" className="font-medium text-primary hover:underline">
-            Log in
+          <Link to="/auth/login" className="font-medium text-orange-400 hover:text-orange-300 transition-colors">
+            Sign in
           </Link>
         </p>
       </form>
