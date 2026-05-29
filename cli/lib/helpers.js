@@ -64,10 +64,26 @@ function prompt(question, defaultValue = "") {
   });
 }
 
+// ── Run with retries (for flaky network commands like npm install) ────────
+
+function runWithRetry(cmd, opts = {}, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return run(cmd, opts);
+    } catch (err) {
+      if (attempt < maxRetries) {
+        warn(`Attempt ${attempt}/${maxRetries} failed, retrying...`);
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
 // ── Generate a secure random secret ───────────────────────────────────────
 
 function generateSecret(bytes = 32) {
   return crypto.randomBytes(bytes).toString("hex");
 }
 
-module.exports = { step, ok, warn, fail, dim, commandExists, run, prompt, generateSecret, isWin };
+module.exports = { step, ok, warn, fail, dim, commandExists, run, runWithRetry, prompt, generateSecret, isWin };

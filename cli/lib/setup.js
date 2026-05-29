@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { TRACKAM_DIR, BACKEND_DIR, FRONTEND_DIR, ENV_FILE, isInstalled } = require("./paths");
-const { step, ok, warn, fail, dim, commandExists, run, prompt, generateSecret, isWin } = require("./helpers");
+const { step, ok, warn, fail, dim, commandExists, run, runWithRetry, prompt, generateSecret, isWin } = require("./helpers");
 const pg = require("./postgres");
 
 const REPO_URL = "https://github.com/Jeffreyon/trackam.git";
@@ -79,11 +79,11 @@ module.exports = async function setup() {
   step("Installing dependencies");
 
   dim("Backend...");
-  run("npm install", { cwd: BACKEND_DIR });
+  runWithRetry("npm install", { cwd: BACKEND_DIR });
   ok("Backend");
 
   dim("Frontend...");
-  run("npm install", { cwd: FRONTEND_DIR });
+  runWithRetry("npm install", { cwd: FRONTEND_DIR });
   ok("Frontend");
 
   // ── 4. Start PostgreSQL & create database ─────────────────────────────
