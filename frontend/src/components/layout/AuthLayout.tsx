@@ -16,7 +16,7 @@ export function AuthLayout({
   footer,
 }: AuthLayoutProps) {
   return (
-    <main className="min-h-screen bg-[#060d18] text-white flex items-center justify-center px-4 relative overflow-hidden">
+    <main className="min-h-screen bg-[#060d18] text-white flex items-center justify-center px-4 py-12 relative overflow-hidden">
       {/* Background gradient orbs */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-orange-500/[0.06] rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-blue-500/[0.04] rounded-full blur-[120px] pointer-events-none" />
