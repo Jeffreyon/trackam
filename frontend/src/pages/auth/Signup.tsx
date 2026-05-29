@@ -3,7 +3,9 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { setAuthToken, clearAuthToken } from "@/lib/authToken";
+import { MISSING_API_BASE_URL_MESSAGE } from "@/lib/runtimeConfig";
 import { signup } from "@/services/auth.api";
+import { authClient } from "@/services/authClient";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 
 type SignupFormValues = {
@@ -32,18 +34,28 @@ export default function Signup() {
         password: values.password,
         profile: { displayName: values.companyName.trim() },
       });
-      // Temporarily set token for any immediate API calls, then clear it —
-      // the session cookie (now set by the backend on signup) handles persistence
+      // Set Bearer token temporarily so the session verification call succeeds
       if (res.idToken) {
         setAuthToken(res.idToken as string);
       }
+
+      // Verify the session cookie was established before navigating
+      const authResult = await authClient.getCurrentUser();
+      if (!authResult.authenticated || !authResult.user) {
+        throw new Error("Authenticated session was not established.");
+      }
+
+      // Session cookie is working — clear the short-lived Bearer token
       clearAuthToken();
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || "Sign up failed. Please try again.";
-      setServerError(msg);
+      clearAuthToken();
+      const message =
+        err instanceof Error && err.message === MISSING_API_BASE_URL_MESSAGE
+          ? "Sign up is unavailable because this frontend deployment is not connected to the API yet."
+          : (err as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message || "Sign up failed. Please try again.";
+      setServerError(message);
     } finally {
       setLoading(false);
     }
