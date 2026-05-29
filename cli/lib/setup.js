@@ -151,6 +151,13 @@ OLI_TRACKING_ENDPOINT=
 `;
 
   fs.writeFileSync(ENV_FILE, envContent, "utf8");
+
+  // Frontend needs VITE_API_URL to know where the backend lives
+  const frontendEnvFile = path.join(FRONTEND_DIR, ".env.local");
+  if (!fs.existsSync(frontendEnvFile)) {
+    fs.writeFileSync(frontendEnvFile, "VITE_API_URL=http://127.0.0.1:4429\n", "utf8");
+  }
+
   ok(".env configured");
 
   // ── 6. Run migrations ────────────────────────────────────────────────
