@@ -1,21 +1,27 @@
+/**
+ * Axios API client — Bearer-primary auth.
+ *
+ * Every request includes:
+ *   1. Authorization: Bearer <token>  (from localStorage — primary)
+ *   2. withCredentials: true          (sends cookie — fallback for same-domain)
+ *
+ * The 401 interceptor only acts on auth endpoint failures (/api/auth/).
+ * Proxied OLI endpoints (/api/wallet, /api/waybill, etc.) may return
+ * 401 for their own reasons and must NOT affect the user's session.
+ */
 import axios from "axios";
 import { clearAuthToken, getAuthToken } from "@/lib/authToken";
 import { assertApiBaseUrl, getApiBaseUrl } from "@/lib/runtimeConfig";
 
 export const apiClient = axios.create({
-  // Allow cookies (for Firebase session cookie set by backend)
   withCredentials: true,
 });
 
+// ── Request: attach Bearer token ────────────────────────────────────────────
 apiClient.interceptors.request.use((config) => {
-  const apiBaseUrl = config.baseURL ?? getApiBaseUrl();
-  config.baseURL = assertApiBaseUrl(apiBaseUrl);
+  config.baseURL = assertApiBaseUrl(config.baseURL ?? getApiBaseUrl());
 
   const token = getAuthToken();
-
-  // Keep sending Authorization header if a token
-  // is available, but the backend now prefers the
-  // long-lived session cookie when present.
   if (token) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -23,26 +29,21 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Only treat 401s from our OWN auth endpoints as session failures.
-// Proxied endpoints (OLI Switch: /api/wallet, /api/waybill, etc.) may
-// return 401 for their own reasons (missing API key, etc.) — those
-// should NOT nuke the user's valid session.
-const AUTH_ENDPOINTS = ["/api/auth/"];
-
+// ── Response: handle auth-endpoint 401s only ────────────────────────────────
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
       const url = error.config?.url || "";
-      const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => url.includes(ep));
+      const isAuthEndpoint = url.includes("/api/auth/");
 
       if (isAuthEndpoint) {
         clearAuthToken();
         if (typeof window !== "undefined") {
           const path = window.location.pathname;
-          const PUBLIC_PREFIXES = ["/auth", "/scan", "/waybill", "/track", "/handover"];
-          const isPublicRoute = path === "/" || PUBLIC_PREFIXES.some((p) => path.startsWith(p));
-          if (!isPublicRoute) {
+          const PUBLIC = ["/auth", "/scan", "/waybill", "/track", "/handover"];
+          const isPublic = path === "/" || PUBLIC.some((p) => path.startsWith(p));
+          if (!isPublic) {
             window.location.href = "/auth/login";
           }
         }

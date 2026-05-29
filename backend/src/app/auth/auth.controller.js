@@ -53,18 +53,15 @@ router.post(
       profile: profile || {},
     });
 
-    // Set session cookie (same as login) so the user stays authenticated
+    // Create the long-lived session JWT (7 days)
     const { sessionCookie, expiresIn } =
       await AuthService.createSessionCookie(
         result.idToken,
         SESSION_COOKIE_MAX_AGE_MS
       );
 
+    // Set cookie (same-domain fallback) + return token in body (primary)
     res.cookie(SESSION_COOKIE_NAME, sessionCookie, buildCookieOptions(expiresIn));
-
-    // Return the long-lived session token in the body so the frontend
-    // can store it in localStorage — cross-domain deployments can't
-    // rely on the cookie being sent by the browser.
     res.status(201).json({ ...result, sessionToken: sessionCookie });
   })
 );

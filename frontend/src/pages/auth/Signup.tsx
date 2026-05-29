@@ -34,20 +34,16 @@ export default function Signup() {
         password: values.password,
         profile: { displayName: values.companyName.trim() },
       });
-      // Prefer the long-lived session token (7 days) over the short-lived
-      // idToken (1 hour) — critical for cross-domain deployments.
+      // Store the 7-day session token
       const token = (res.sessionToken || res.idToken) as string | undefined;
-      if (token) {
-        setAuthToken(token);
-      }
+      if (token) setAuthToken(token);
 
-      // Verify the session cookie was established before navigating
+      // Verify the token works before navigating
       const authResult = await authClient.getCurrentUser();
       if (!authResult.authenticated || !authResult.user) {
         throw new Error("Authenticated session was not established.");
       }
 
-      // Keep Bearer token — cross-domain deployments can't rely on cookies
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       const message =

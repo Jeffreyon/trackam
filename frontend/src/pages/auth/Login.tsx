@@ -29,23 +29,18 @@ export default function Login() {
 
     try {
       const res = await login(values);
-      // Prefer the long-lived session token (7 days) over the short-lived
-      // idToken (1 hour) — critical for cross-domain deployments where
-      // the browser may not send the session cookie.
-      const token = (res.sessionToken || res.idToken) as string | undefined;
-      if (token) {
-        setAuthToken(token);
-      }
 
+      // Store the 7-day session token (falls back to 1h idToken for
+      // older backends that haven't deployed the sessionToken change yet)
+      const token = (res.sessionToken || res.idToken) as string | undefined;
+      if (token) setAuthToken(token);
+
+      // Verify the token works before navigating
       const authResult = await authClient.getCurrentUser();
       if (!authResult.authenticated || !authResult.user) {
         throw new Error("Authenticated session was not established.");
       }
 
-      // Keep the Bearer token in localStorage — cross-domain deployments
-      // (e.g. Railway) can't rely on cookies alone because browsers
-      // restrict third-party cookie sending.  The token expires in 1h;
-      // the session cookie (7 days, same-domain) takes over after that.
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error(err);

@@ -1,3 +1,9 @@
+/**
+ * Auth client — thin wrapper around /api/auth endpoints.
+ *
+ * Uses apiClient which sends the Bearer token automatically.
+ * clearAuthToken is only called on explicit logout.
+ */
 import { clearAuthToken } from "@/lib/authToken";
 import { apiClient } from "@/lib/apiClient";
 
@@ -26,9 +32,7 @@ function isAuthPayload(
 export const authClient = {
   async getCurrentUser(): Promise<AuthResult> {
     try {
-      const res = await apiClient.get("/api/auth/me", {
-        withCredentials: true,
-      });
+      const res = await apiClient.get("/api/auth/me");
 
       if (!isAuthPayload(res.data)) {
         throw new Error("Invalid auth payload");
@@ -60,13 +64,12 @@ export const authClient = {
     return result.isAdmin;
   },
 
+  /** Explicit logout — the ONLY place that clears the Bearer token. */
   async logout(): Promise<void> {
     try {
-      await apiClient.post("/api/auth/logout", undefined, {
-        withCredentials: true,
-      });
+      await apiClient.post("/api/auth/logout");
     } catch {
-      // Ignore logout errors in template
+      // best-effort
     } finally {
       clearAuthToken();
     }
