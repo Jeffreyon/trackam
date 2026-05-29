@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2, CheckCircle2, Key } from "lucide-react";
 import { logisticsSettingsApi, type LogisticsSettings } from "@/services/logistics";
 import { oliAccountApi, type OliAccount } from "@/services/oliAccount";
+import { triggerWalletRefresh } from "@/components/layout/WalletWidget";
 import { COUNTRY_OPTIONS } from "@/lib/idSchemes";
 
 const FIELDS: { key: keyof LogisticsSettings; label: string; description: string; suffix?: string; type?: string }[] = [
@@ -51,6 +52,7 @@ export default function SettingsPage() {
       setOliAccount(updated);
       setApiKeyInput("");
       setKeySaved(true);
+      triggerWalletRefresh();
       setTimeout(() => setKeySaved(false), 3000);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
