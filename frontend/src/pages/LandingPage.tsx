@@ -276,10 +276,6 @@ export default function LandingPage() {
             ].map((step, i) => (
               <FadeIn key={step.n} delay={i * 0.12}>
                 <div className="group relative text-center lg:text-left">
-                  {/* Connection line */}
-                  {step.n < 4 && (
-                    <div className="hidden lg:block absolute top-7 left-[calc(100%+8px)] w-[calc(100%-16px)] h-px bg-gradient-to-r from-white/[0.08] to-transparent" />
-                  )}
                   <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-orange-500/15 to-orange-500/5 border border-orange-500/10 flex items-center justify-center mb-5 group-hover:border-orange-500/30 group-hover:from-orange-500/25 transition-all mx-auto lg:mx-0">
                     <step.icon className="h-6 w-6 text-orange-400" />
                   </div>
