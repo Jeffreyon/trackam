@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   ArrowRight, Terminal, Copy, Check, Shield, Truck, FileText,
-  Package, Ghost, Wallet, BarChart3, Users, Clock, ChevronRight,
+  Package, Ghost, Wallet, BarChart3, Users, Clock,
   Github, Zap, Lock, Globe
 } from "lucide-react";
 import { PublicNav } from "@/components/layout/PublicNav";
