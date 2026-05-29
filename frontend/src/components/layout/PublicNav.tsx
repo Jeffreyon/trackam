@@ -12,6 +12,7 @@ export function PublicNav() {
   const [trackLoading, setTrackLoading] = useState(false);
   const [trackError, setTrackError] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -30,6 +31,12 @@ export function PublicNav() {
     if (searchOpen) setTimeout(() => inputRef.current?.focus(), 50);
   }, [searchOpen]);
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   async function handleTrack(e: React.FormEvent) {
     e.preventDefault();
     const q = trackQuery.trim().toUpperCase();
@@ -37,7 +44,6 @@ export function PublicNav() {
     setTrackLoading(true);
     setTrackError("");
     try {
-      // Try as waybill number first, fall back to treating as ID
       if (q.startsWith("WB-")) {
         const waybill = await publicWaybillApi.lookup(q);
         window.location.href = `/track/${waybill.id}`;
@@ -51,28 +57,32 @@ export function PublicNav() {
   }
 
   return (
-    <header className="bg-[#0a1628] text-white sticky top-0 z-50 border-b border-white/[0.08]">
-      <div className="max-w-6xl mx-auto px-5">
-        <div className="flex items-center justify-between h-14 gap-4">
+    <header className="fixed top-0 inset-x-0 z-50 px-4 pt-3">
+      <nav
+        className={[
+          "max-w-5xl mx-auto rounded-2xl px-4 transition-all duration-300",
+          scrolled
+            ? "bg-[#0a1628]/80 border border-white/[0.08] shadow-lg shadow-black/20 backdrop-blur-xl"
+            : "bg-transparent border border-transparent",
+        ].join(" ")}
+      >
+        <div className="flex items-center justify-between h-12 gap-4">
 
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="h-7 w-7 rounded-md bg-orange-500 flex items-center justify-center">
-              <Package className="h-4 w-4 text-white" />
+          <a href="/" className="flex items-center gap-2 shrink-0">
+            <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+              <Package className="h-3.5 w-3.5 text-white" />
             </div>
-            <span className="text-sm font-bold tracking-tight">Trackam</span>
-            <span className="hidden sm:inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-stone-300">
-              OLI
-            </span>
+            <span className="text-[13px] font-bold tracking-tight text-white">Trackam</span>
           </a>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex gap-0.5 flex-1 ">
+          <div className="hidden md:flex items-center gap-0.5 flex-1 justify-center">
             {NAV_LINKS.map(({ href, label, icon: Icon }) => (
               <a
                 key={href}
                 href={href}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-stone-400 hover:text-white hover:bg-white/[0.07] rounded-md transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-stone-400 hover:text-white rounded-lg transition-colors"
               >
                 <Icon className="h-3.5 w-3.5" />
                 {label}
@@ -83,27 +93,27 @@ export function PublicNav() {
             <div ref={searchRef} className="relative">
               <button
                 onClick={() => { setSearchOpen((v) => !v); setTrackError(""); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-stone-400 hover:text-white hover:bg-white/[0.07] rounded-md transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-stone-400 hover:text-white rounded-lg transition-colors"
               >
                 <Search className="h-3.5 w-3.5" />
                 Track Package
               </button>
 
               {searchOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-72 bg-[#0f2040] border border-white/10 rounded-xl shadow-2xl p-3 space-y-2">
-                  <p className="text-[11px] text-stone-400 font-medium">Enter waybill number or ID</p>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-72 bg-[#0c1522]/95 border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 backdrop-blur-xl p-3 space-y-2">
+                  <p className="text-[11px] text-stone-500 font-medium">Enter waybill number or ID</p>
                   <form onSubmit={handleTrack} className="flex gap-2">
                     <input
                       ref={inputRef}
                       value={trackQuery}
                       onChange={(e) => setTrackQuery(e.target.value)}
                       placeholder="WB-20250507-XXXXXX"
-                      className="flex-1 rounded-md bg-white/10 border border-white/10 px-3 h-8 text-xs text-white placeholder:text-stone-500 focus:outline-none focus:border-orange-500/60 font-mono"
+                      className="flex-1 rounded-lg bg-white/[0.06] border border-white/[0.08] px-3 h-8 text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 font-mono"
                     />
                     <button
                       type="submit"
                       disabled={trackLoading || !trackQuery.trim()}
-                      className="rounded-md bg-orange-500 hover:bg-orange-600 px-3 h-8 text-xs font-semibold text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      className="rounded-lg bg-orange-500 hover:bg-orange-600 px-3 h-8 text-xs font-semibold text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
                     >
                       {trackLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Go"}
                     </button>
@@ -112,27 +122,24 @@ export function PublicNav() {
                 </div>
               )}
             </div>
-          </nav>
+          </div>
 
           {/* Right actions */}
-          <div className="hidden md:flex items-center gap-3 shrink-0">
+          <div className="hidden md:flex items-center gap-2 shrink-0">
             <a
               href="https://github.com/Jeffreyon/trackam"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-[13px] text-stone-400 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] text-stone-500 hover:text-white transition-colors"
               title="View on GitHub"
             >
-              <Github className="h-4 w-4" />
-              <span className="text-[12px]">GitHub</span>
+              <Github className="h-3.5 w-3.5" />
             </a>
-            <div className="h-4 w-px bg-white/10" />
             <a
               href="/auth/login"
-              className="flex items-center gap-1.5 rounded-md bg-orange-500 hover:bg-orange-600 text-white px-3.5 h-8 text-[13px] font-semibold transition-colors"
+              className="flex items-center gap-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.06] text-white px-3.5 h-8 text-[12px] font-medium transition-all"
             >
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              Operator Login
+              Dashboard
             </a>
           </div>
 
@@ -144,16 +151,16 @@ export function PublicNav() {
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
-      </div>
+      </nav>
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-white/[0.08] bg-[#0a1628] px-5 py-4 space-y-1">
+        <div className="md:hidden max-w-5xl mx-auto mt-2 rounded-2xl border border-white/[0.08] bg-[#0a1628]/95 backdrop-blur-xl px-4 py-4 space-y-1 shadow-2xl shadow-black/40">
           {NAV_LINKS.map(({ href, label, icon: Icon }) => (
             <a
               key={href}
               href={href}
-              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-stone-300 hover:text-white hover:bg-white/[0.07] rounded-md transition-colors"
+              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-stone-300 hover:text-white hover:bg-white/[0.05] rounded-xl transition-colors"
             >
               <Icon className="h-4 w-4 shrink-0" />
               {label}
@@ -167,13 +174,13 @@ export function PublicNav() {
               <input
                 value={trackQuery}
                 onChange={(e) => setTrackQuery(e.target.value)}
-                placeholder="Waybill number…"
-                className="flex-1 rounded-md bg-white/10 border border-white/10 px-3 h-9 text-sm text-white placeholder:text-stone-500 focus:outline-none focus:border-orange-500/60 font-mono"
+                placeholder="Waybill number..."
+                className="flex-1 rounded-lg bg-white/[0.06] border border-white/[0.08] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 font-mono"
               />
               <button
                 type="submit"
                 disabled={trackLoading || !trackQuery.trim()}
-                className="rounded-md bg-orange-500 hover:bg-orange-600 px-4 h-9 text-sm font-semibold text-white transition-colors disabled:opacity-50"
+                className="rounded-lg bg-orange-500 hover:bg-orange-600 px-4 h-9 text-sm font-semibold text-white transition-colors disabled:opacity-50"
               >
                 {trackLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Go"}
               </button>
@@ -181,22 +188,21 @@ export function PublicNav() {
             {trackError && <p className="text-[11px] text-red-400 mt-1">{trackError}</p>}
           </form>
 
-          <div className="border-t border-white/[0.08] pt-3 mt-2 flex items-center gap-3">
+          <div className="border-t border-white/[0.06] pt-3 mt-2 flex items-center gap-3">
             <a
               href="https://github.com/Jeffreyon/trackam"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm text-stone-400 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-white transition-colors"
             >
               <Github className="h-4 w-4" />
               GitHub
             </a>
             <a
               href="/auth/login"
-              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-orange-500 hover:bg-orange-600 text-white h-9 text-sm font-semibold transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.06] text-white h-9 text-sm font-medium transition-all"
             >
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              Operator Login
+              Dashboard
             </a>
           </div>
         </div>

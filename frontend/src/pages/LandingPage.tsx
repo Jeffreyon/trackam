@@ -123,7 +123,7 @@ export default function LandingPage() {
         <div className="absolute top-[10%] right-[5%] w-[400px] h-[400px] bg-amber-500/[0.05] rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-[-10%] left-[40%] w-[500px] h-[500px] bg-orange-600/[0.04] rounded-full blur-[140px] pointer-events-none" />
 
-        <div className="relative max-w-4xl mx-auto px-5 pt-24 sm:pt-32 pb-28 sm:pb-36">
+        <div className="relative max-w-4xl mx-auto px-5 pt-32 sm:pt-40 pb-28 sm:pb-36">
           {/* Badge */}
           <FadeIn className="flex justify-center">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/[0.08] px-4 py-1.5 text-[12px] font-medium text-stone-300 backdrop-blur-sm">
