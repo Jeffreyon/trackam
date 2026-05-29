@@ -29,4 +29,18 @@ async function saveApiKey(userId, apiKey) {
   return r.rows[0] || null;
 }
 
-module.exports = { create, findByUserId, saveApiKey };
+/**
+ * Return the first active operator's API key.
+ * Used as a fallback for unauthenticated (public) requests in single-tenant
+ * deployments where only one operator exists.
+ */
+async function findDefaultApiKey() {
+  const r = await query(
+    `SELECT oli_api_key FROM oli_accounts
+     WHERE oli_api_key IS NOT NULL AND oli_status = 'active'
+     ORDER BY created_at ASC LIMIT 1`
+  );
+  return r.rows[0]?.oli_api_key || null;
+}
+
+module.exports = { create, findByUserId, saveApiKey, findDefaultApiKey };

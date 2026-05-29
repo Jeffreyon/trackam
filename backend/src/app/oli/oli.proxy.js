@@ -20,16 +20,31 @@ const _keyCache = new Map(); // userId → { key, expiresAt }
 const KEY_CACHE_TTL_MS = 60_000;
 
 async function _resolveApiKey(userId) {
-  if (!userId) return OLI_API_KEY_ENV;
-  const cached = _keyCache.get(userId);
+  // Authenticated user → look up their key
+  if (userId) {
+    const cached = _keyCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) return cached.key;
+    try {
+      const account = await oliAccountRepo.findByUserId(userId);
+      const key = account?.oli_api_key || OLI_API_KEY_ENV;
+      _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
+      return key;
+    } catch {
+      return OLI_API_KEY_ENV;
+    }
+  }
+
+  // Unauthenticated (public pages) → env var, then default operator key
+  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
+
+  const cached = _keyCache.get("__default__");
   if (cached && cached.expiresAt > Date.now()) return cached.key;
   try {
-    const account = await oliAccountRepo.findByUserId(userId);
-    const key = account?.oli_api_key || OLI_API_KEY_ENV;
-    _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
-    return key;
+    const key = await oliAccountRepo.findDefaultApiKey();
+    if (key) _keyCache.set("__default__", { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
+    return key || "";
   } catch {
-    return OLI_API_KEY_ENV;
+    return "";
   }
 }
 
@@ -51,7 +66,7 @@ function createOliProxy() {
     // Resolve API key then forward — async wrapper keeps the existing sync-style proxy logic
     _resolveApiKey(userId).then((apiKey) => {
       if (!apiKey) {
-        console.warn(`[oli-proxy] No API key resolved — userId=${userId}, reqUser=${JSON.stringify(req.user || null)}, hasAuth=${!!req.headers.authorization}, path=${req.originalUrl}`);
+        console.warn(`[oli-proxy] No API key resolved — userId=${userId}, path=${req.originalUrl}`);
         return res.status(403).json({
           message: "OLI API key not configured. Go to Settings and paste your API key to connect to the OLI network.",
         });

@@ -32,16 +32,30 @@ const _keyCache = new Map(); // userId → { key, expiresAt }
 const KEY_CACHE_TTL_MS = 60_000;
 
 async function _resolveApiKey(userId) {
-  if (!userId) return OLI_API_KEY_ENV;
-  const cached = _keyCache.get(userId);
+  if (userId) {
+    const cached = _keyCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) return cached.key;
+    try {
+      const account = await oliAccountRepo.findByUserId(userId);
+      const key = account?.oli_api_key || OLI_API_KEY_ENV;
+      _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
+      return key;
+    } catch {
+      return OLI_API_KEY_ENV;
+    }
+  }
+
+  // Unauthenticated (public pages) → env var, then default operator key
+  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
+
+  const cached = _keyCache.get("__default__");
   if (cached && cached.expiresAt > Date.now()) return cached.key;
   try {
-    const account = await oliAccountRepo.findByUserId(userId);
-    const key = account?.oli_api_key || OLI_API_KEY_ENV;
-    _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
-    return key;
+    const key = await oliAccountRepo.findDefaultApiKey();
+    if (key) _keyCache.set("__default__", { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
+    return key || "";
   } catch {
-    return OLI_API_KEY_ENV;
+    return "";
   }
 }
 
