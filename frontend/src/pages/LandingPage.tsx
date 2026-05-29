@@ -300,22 +300,22 @@ export default function LandingPage() {
             </h2>
           </FadeIn>
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <FadeIn delay={0}>
+            <FadeIn delay={0} className="h-full">
               <BentoCard icon={<Shield className="h-5 w-5" />} gradient="from-purple-500/20 to-purple-500/5" title="Proof of Handover" description="SHA-256 hash at every custody transfer. Government ID captured. Immutable receipt you can use in disputes." />
             </FadeIn>
-            <FadeIn delay={0.05}>
+            <FadeIn delay={0.05} className="h-full">
               <BentoCard icon={<FileText className="h-5 w-5" />} gradient="from-orange-500/20 to-orange-500/5" title="Digital Waybills" description="QR-coded waybills generated in seconds. Track any package by scanning the code or entering the waybill number." />
             </FadeIn>
-            <FadeIn delay={0.1}>
+            <FadeIn delay={0.1} className="h-full">
               <BentoCard icon={<Truck className="h-5 w-5" />} gradient="from-blue-500/20 to-blue-500/5" title="Dispatch Runs" description="Group shipments into runs. Assign riders. Dispatch batches with one click and track the full trip." />
             </FadeIn>
-            <FadeIn delay={0.15}>
+            <FadeIn delay={0.15} className="h-full">
               <BentoCard icon={<Ghost className="h-5 w-5" />} gradient="from-red-500/20 to-red-500/5" title="Ghost Detection" description="Automatic alerts when riders go silent. Configurable threshold. See ghost rate trends per rider over time." />
             </FadeIn>
-            <FadeIn delay={0.2}>
+            <FadeIn delay={0.2} className="h-full">
               <BentoCard icon={<Users className="h-5 w-5" />} gradient="from-emerald-500/20 to-emerald-500/5" title="Rider Management" description="Track performance per rider — delivery rate, ghost rate, total shipments handled. Know who you can trust." />
             </FadeIn>
-            <FadeIn delay={0.25}>
+            <FadeIn delay={0.25} className="h-full">
               <BentoCard icon={<BarChart3 className="h-5 w-5" />} gradient="from-stone-500/20 to-stone-500/5" title="Cost Tracking" description="Fuel cost per trip. Total logistics spend. Value at risk. Monthly loss reporting. Know where your money goes." />
             </FadeIn>
           </div>
@@ -402,7 +402,7 @@ function BentoCard({ icon, gradient, title, description }: {
   icon: React.ReactNode; gradient: string; title: string; description: string;
 }) {
   return (
-    <div className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 hover:bg-white/[0.04] hover:border-white/[0.1] transition-all">
+    <div className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 hover:bg-white/[0.04] hover:border-white/[0.1] transition-all h-full">
       <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${gradient} border border-white/[0.06] flex items-center justify-center mb-4 text-white/80 group-hover:text-white transition-colors`}>
         {icon}
       </div>
