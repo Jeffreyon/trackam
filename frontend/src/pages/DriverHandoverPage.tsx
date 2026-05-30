@@ -363,8 +363,8 @@ export default function DriverHandoverPage() {
                         <div className={[
                           "relative z-10 shrink-0 h-7 w-7 rounded-full border flex items-center justify-center text-[9px] font-bold",
                           idx === waybillChain.length - 1
-                            ? "border-purple-400 bg-purple-500/15 text-purple-400"
-                            : "border-white/[0.06] bg-white/[0.03] text-stone-400",
+                            ? "border-purple-400 bg-[#060d18] text-purple-400"
+                            : "border-white/[0.06] bg-[#060d18] text-stone-400",
                         ].join(" ")}>
                           {idx + 1}
                         </div>

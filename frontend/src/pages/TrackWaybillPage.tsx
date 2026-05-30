@@ -273,7 +273,7 @@ export default function TrackWaybillPage() {
                 </div>
               ) : (
                 <div className="relative">
-                  <div className="absolute left-[17px] top-5 bottom-5 w-px bg-border" />
+                  <div className="absolute left-[17px] top-5 bottom-5 w-px bg-white/[0.08]" />
                   <div className="space-y-3">
                     {data.chain.map((event, idx) => {
                       const auth = isAuthEvent(event);
@@ -282,8 +282,8 @@ export default function TrackWaybillPage() {
                           <div className={[
                             "relative z-10 shrink-0 h-9 w-9 rounded-full border-2 flex items-center justify-center text-[10px] font-bold",
                             idx === data.chain.length - 1 && data.waybill.isDelivered
-                              ? "border-green-500 bg-green-500/10 text-green-700"
-                              : "border-orange-500 bg-orange-500/10 text-orange-400",
+                              ? "border-green-500 bg-[#060d18] text-green-400"
+                              : "border-orange-500 bg-[#060d18] text-orange-400",
                           ].join(" ")}>
                             {idx + 1}
                           </div>
