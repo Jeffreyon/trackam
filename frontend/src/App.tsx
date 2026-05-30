@@ -4,6 +4,7 @@ import ScanPage from "@/pages/ScanPage";
 import WaybillGeneratorPage from "@/pages/WaybillGeneratorPage";
 import TrackWaybillPage from "@/pages/TrackWaybillPage";
 import DriverHandoverPage from "@/pages/DriverHandoverPage";
+import HandoverLandingPage from "@/pages/HandoverLandingPage";
 import JoinLegPage from "@/pages/JoinLegPage";
 import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
@@ -45,8 +46,8 @@ const router = createBrowserRouter([
   { path: "/scan", element: <ScanPage /> },
   { path: "/waybill", element: <WaybillGeneratorPage /> },
   { path: "/track/:id", element: <TrackWaybillPage /> },
+  { path: "/handover", element: <HandoverLandingPage /> },
   { path: "/handover/driver", element: <DriverHandoverPage /> },
-  { path: "/driver", element: <DriverHandoverPage /> },
   { path: "/join", element: <JoinLegPage /> },
   {
     path: "/dashboard",
