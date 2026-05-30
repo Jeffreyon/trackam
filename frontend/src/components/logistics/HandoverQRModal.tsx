@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { X, Loader2, Copy, Check, ArrowRight, CheckCircle2 } from "lucide-react";
 import { handoverApi, ACTOR_LABELS, type ActorType } from "@/services/handover";
+import { triggerWalletRefresh } from "@/components/layout/WalletWidget";
 
 interface Props {
   shipmentId: string;
@@ -71,6 +72,7 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
           clearInterval(interval);
           setConfirmedEvent(events[events.length - 1]);
           setConfirmed(true);
+          triggerWalletRefresh();
           onConfirmed?.();
         }
       } catch {

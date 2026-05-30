@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, ShieldCheck, X } from "lucide-react";
 import { getAuthToken } from "@/lib/authToken";
 import { ACTOR_LABELS, type ActorType } from "@/services/handover";
+import { triggerWalletRefresh } from "./WalletWidget";
 
 interface WaybillNotification {
   id: string;
@@ -52,6 +53,8 @@ export default function NotificationBell() {
             },
             ...prev,
           ]);
+          // Handover confirmation means a fee was charged — refresh wallet
+          triggerWalletRefresh();
         }
       } catch {
         // malformed event — ignore

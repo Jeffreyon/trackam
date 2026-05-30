@@ -9,6 +9,7 @@ import { StatusBadge, RiskBadge } from "@/components/logistics/StatusBadge";
 import HandoverQRModal from "@/components/logistics/HandoverQRModal";
 import { getApiBaseUrl } from "@/lib/runtimeConfig";
 import { getAuthToken } from "@/lib/authToken";
+import { triggerWalletRefresh } from "@/components/layout/WalletWidget";
 
 const NEXT_STATUSES: Partial<Record<ShipmentStatus, ShipmentStatus[]>> = {
   pending:     ["in_transit", "failed"],
@@ -126,6 +127,7 @@ export default function ShipmentDetailPage() {
         setJustUpdated(true);
         setTimeout(() => setJustUpdated(false), 4000);
       });
+      triggerWalletRefresh();
     });
 
     return () => { es.close(); setLiveConnected(false); };
