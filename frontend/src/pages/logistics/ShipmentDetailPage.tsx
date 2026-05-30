@@ -92,7 +92,7 @@ export default function ShipmentDetailPage() {
           );
           if (
             realHandovers.length > 0 &&
-            ["pending", "in_transit"].includes(s.status)
+            ["pending", "in_transit", "disputed"].includes(s.status)
           ) {
             try {
               const updated = await shipmentsApi.updateStatus(

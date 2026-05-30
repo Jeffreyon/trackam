@@ -15,7 +15,7 @@ const VALID_TRANSITIONS = {
   in_transit:  ["delivered", "ghosted", "failed", "handed_over"],
   handed_over: ["in_transit", "delivered", "ghosted", "failed", "handed_over", "disputed"],
   ghosted:     ["in_transit", "disputed"],
-  disputed:    ["in_transit"],
+  disputed:    ["in_transit", "handed_over"],
 };
 
 async function getSettings(userId) {
@@ -237,7 +237,7 @@ async function syncHandoverStatuses(userId) {
     `SELECT id, waybill_id FROM shipments
      WHERE user_id = $1
        AND waybill_id IS NOT NULL
-       AND status IN ('pending', 'in_transit')`,
+       AND status IN ('pending', 'in_transit', 'disputed')`,
     [userId]
   );
 
