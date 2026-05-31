@@ -135,16 +135,16 @@ export default function ShipmentsPage() {
     <div className="max-w-5xl space-y-4">
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap justify-between">
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] p-1">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={[
-                "rounded-lg px-3 h-7 text-xs font-medium transition-colors",
+                "rounded-lg px-3 h-7 text-xs font-medium transition-all",
                 filter === f.value
-                  ? "bg-white/[0.12] text-white"
-                  : "text-stone-500 hover:text-stone-300 hover:bg-white/[0.04]",
+                  ? "bg-white/[0.08] text-white shadow-sm shadow-black/20"
+                  : "text-stone-500 hover:text-stone-300",
               ].join(" ")}
             >
               {f.label}
