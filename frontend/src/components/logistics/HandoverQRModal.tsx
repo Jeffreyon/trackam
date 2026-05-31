@@ -33,7 +33,6 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
     setLoading(true);
     setError(null);
     try {
-      // Snapshot current event count before generating the token
       const existing = await handoverApi.getEvents(shipmentId).catch(() => []);
       initialEventCountRef.current = existing.length;
 
@@ -55,17 +54,14 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
     }
   }
 
-  // Keep a ref so the poll closure can read the latest secondsLeft without being
-  // in the dependency array (which would cancel + restart the interval every second)
   const secondsLeftRef = useRef(secondsLeft);
   useEffect(() => { secondsLeftRef.current = secondsLeft; }, [secondsLeft]);
 
-  // Poll for confirmation — only restarts when the token itself changes
   useEffect(() => {
     if (!token) return;
 
     const interval = setInterval(async () => {
-      if (secondsLeftRef.current <= 0) return; // token expired, stop checking
+      if (secondsLeftRef.current <= 0) return;
       try {
         const events = await handoverApi.getEvents(shipmentId);
         if (events.length > initialEventCountRef.current) {
@@ -83,7 +79,6 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
     return () => clearInterval(interval);
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Countdown — separate from polling so it doesn't disturb it
   useEffect(() => {
     if (secondsLeft <= 0) return;
     const interval = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
@@ -101,15 +96,15 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
   const secs = secondsLeft % 60;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-sm rounded-xl border border-border bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-sm rounded-xl border border-white/[0.08] bg-[#0c1522] shadow-2xl shadow-black/40">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
           <div>
-            <p className="text-sm font-semibold text-foreground">Initiate Handover</p>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">{goodsDescription}</p>
+            <p className="text-sm font-semibold text-white">Initiate Handover</p>
+            <p className="text-xs text-stone-500 mt-0.5 truncate max-w-[200px]">{goodsDescription}</p>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} className="text-stone-600 hover:text-stone-300 transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -117,27 +112,27 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
         <div className="p-5 space-y-4">
           {confirmed ? (
             <div className="flex flex-col items-center gap-4 py-2 text-center">
-              <div className="h-14 w-14 rounded-full bg-green-100 flex items-center justify-center">
-                <CheckCircle2 className="h-7 w-7 text-green-600" />
+              <div className="h-14 w-14 rounded-full bg-emerald-500/[0.15] flex items-center justify-center">
+                <CheckCircle2 className="h-7 w-7 text-emerald-400" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-foreground">Handover confirmed</p>
+                <p className="text-sm font-semibold text-white">Handover confirmed</p>
                 {confirmedEvent && (
                   <>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-stone-500">
                       Custody transferred to{" "}
-                      <span className="font-medium text-foreground">{confirmedEvent.receiverName}</span>
+                      <span className="font-medium text-stone-300">{confirmedEvent.receiverName}</span>
                       {" "}({ACTOR_LABELS[confirmedEvent.receiverActorType]})
                     </p>
-                    <p className="font-mono text-[10px] text-muted-foreground pt-1">
-                      PoH: {confirmedEvent.proofHash.slice(0, 20)}…
+                    <p className="font-mono text-[10px] text-stone-600 pt-1">
+                      PoH: {confirmedEvent.proofHash.slice(0, 20)}...
                     </p>
                   </>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="w-full inline-flex items-center justify-center rounded-md bg-green-600 hover:bg-green-700 text-white h-9 text-sm font-medium transition-colors"
+                className="w-full inline-flex items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white h-9 text-sm font-medium transition-colors"
               >
                 Close
               </button>
@@ -146,17 +141,17 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
             <>
               {/* Actor type selector */}
               <div>
-                <p className="text-xs font-medium text-foreground mb-2">Who is receiving custody?</p>
+                <p className="text-xs font-medium text-stone-300 mb-2">Who is receiving custody?</p>
                 <div className="grid grid-cols-2 gap-2">
                   {ACTOR_OPTIONS.map((type) => (
                     <button
                       key={type}
                       onClick={() => setActorType(type)}
                       className={[
-                        "rounded-md border px-3 py-2 text-[11px] font-medium text-left transition-colors",
+                        "rounded-lg border px-3 py-2 text-[11px] font-medium text-left transition-all",
                         actorType === type
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-border text-muted-foreground hover:border-primary/40",
+                          ? "border-orange-500/40 bg-orange-500/[0.08] text-orange-400"
+                          : "border-white/[0.06] text-stone-500 hover:border-white/[0.12] hover:text-stone-300",
                       ].join(" ")}
                     >
                       {ACTOR_LABELS[type]}
@@ -166,7 +161,7 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
               </div>
 
               {error && (
-                <p className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
+                <p className="rounded-lg bg-red-500/[0.1] border border-red-500/20 px-3 py-2 text-xs text-red-400">
                   {error}
                 </p>
               )}
@@ -174,7 +169,7 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
               <button
                 onClick={generate}
                 disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground h-9 text-sm font-medium transition-colors hover:bg-primary/90 disabled:opacity-60"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 text-white h-9 text-sm font-medium transition-all hover:shadow-orange-500/20 hover:shadow-lg disabled:opacity-60"
               >
                 {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                 Generate QR code
@@ -184,23 +179,23 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
             <>
               {/* QR code */}
               <div className="flex flex-col items-center gap-3">
-                <div className="rounded-lg border border-border p-3 bg-white">
+                <div className="rounded-lg border border-white/[0.08] p-3 bg-white">
                   <QRCodeSVG value={scanUrl!} size={180} />
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-stone-500">
                     Ask the receiver to scan this QR code
                   </p>
-                  <p className="text-[11px] text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                  <p className="text-[11px] text-stone-600 mt-1 flex items-center justify-center gap-1">
                     <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                    Waiting for receiver…
+                    Waiting for receiver...
                   </p>
                   {secondsLeft > 0 ? (
-                    <p className="text-xs font-medium text-amber-700 mt-1">
+                    <p className="text-xs font-medium text-amber-400 mt-1">
                       Expires in {mins}:{String(secs).padStart(2, "0")}
                     </p>
                   ) : (
-                    <p className="text-xs font-medium text-red-600 mt-1">Expired — generate a new code</p>
+                    <p className="text-xs font-medium text-red-400 mt-1">Expired — generate a new code</p>
                   )}
                 </div>
               </div>
@@ -209,16 +204,16 @@ export default function HandoverQRModal({ shipmentId, goodsDescription, onClose,
               <button
                 onClick={copyLink}
                 disabled={secondsLeft === 0}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border h-8 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.06] h-8 text-xs text-stone-500 hover:text-stone-300 transition-colors disabled:opacity-40"
               >
-                {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                 {copied ? "Copied!" : "Copy link to share"}
               </button>
 
               {secondsLeft === 0 && (
                 <button
                   onClick={() => { setToken(null); setExpiresAt(null); }}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground h-8 text-xs font-medium"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 text-white h-8 text-xs font-medium"
                 >
                   Generate new code
                 </button>

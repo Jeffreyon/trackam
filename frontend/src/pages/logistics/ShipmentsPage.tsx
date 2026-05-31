@@ -52,14 +52,12 @@ export default function ShipmentsPage() {
       .finally(() => setLoading(false));
   }
 
-  // On mount, sync handover statuses from OLI then load the list.
-  // On filter change, just reload from local DB (sync already ran).
   const hasSynced = useRef(false);
   useEffect(() => {
     if (!hasSynced.current) {
       hasSynced.current = true;
       shipmentsApi.syncHandoverStatus()
-        .catch(() => {}) // non-fatal — stale status is better than a blank page
+        .catch(() => {})
         .finally(() => load(filter || undefined));
     } else {
       load(filter || undefined);
@@ -143,10 +141,10 @@ export default function ShipmentsPage() {
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={[
-                "rounded-md px-3 h-7 text-xs font-medium transition-colors",
+                "rounded-lg px-3 h-7 text-xs font-medium transition-colors",
                 filter === f.value
-                  ? "bg-foreground text-background"
-                  : "bg-secondary text-muted-foreground hover:text-foreground",
+                  ? "bg-white/[0.12] text-white"
+                  : "text-stone-500 hover:text-stone-300 hover:bg-white/[0.04]",
               ].join(" ")}
             >
               {f.label}
@@ -156,10 +154,10 @@ export default function ShipmentsPage() {
         <button
           onClick={() => setSelectMode((v) => !v)}
           className={[
-            "inline-flex items-center gap-1.5 rounded-md px-3 h-7 text-xs font-medium transition-colors",
+            "inline-flex items-center gap-1.5 rounded-lg px-3 h-7 text-xs font-medium transition-colors",
             selectMode
-              ? "bg-foreground text-background"
-              : "bg-secondary text-muted-foreground hover:text-foreground",
+              ? "bg-orange-500/[0.15] text-orange-400 border border-orange-500/30"
+              : "text-stone-500 hover:text-stone-300 hover:bg-white/[0.04]",
           ].join(" ")}
         >
           <CheckSquare2 className="h-3.5 w-3.5" />
@@ -168,30 +166,30 @@ export default function ShipmentsPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-border bg-white shadow-xs overflow-hidden">
+      <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading…</div>
+          <div className="p-8 text-center text-xs text-stone-500 animate-pulse">Loading…</div>
         ) : shipments.length === 0 ? (
           <div className="p-12 text-center">
-            <Package className="h-8 w-8 text-stone-300 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">No shipments yet.</p>
+            <Package className="h-8 w-8 text-stone-600 mx-auto mb-3" />
+            <p className="text-sm text-stone-500">No shipments yet.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-border bg-secondary/50">
+                <tr className="border-b border-white/[0.06] bg-white/[0.02]">
                   {selectMode && <th className="px-3 py-2.5 w-8" />}
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Shipment</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden sm:table-cell">Route</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden md:table-cell">Rider</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-2.5 text-right font-medium text-muted-foreground hidden sm:table-cell">Cost</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden lg:table-cell">Expected</th>
-                  <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden md:table-cell">Risk</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-stone-500">Shipment</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-stone-500 hidden sm:table-cell">Route</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-stone-500 hidden md:table-cell">Rider</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-stone-500">Status</th>
+                  <th className="px-4 py-2.5 text-right font-medium text-stone-500 hidden sm:table-cell">Cost</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-stone-500 hidden lg:table-cell">Expected</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-stone-500 hidden md:table-cell">Risk</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-white/[0.04]">
                 {shipments.map((s) => {
                   const isSelected = selected.has(s.id);
                   return (
@@ -201,39 +199,39 @@ export default function ShipmentsPage() {
                       className={[
                         "transition-colors",
                         selectMode ? "cursor-pointer" : "",
-                        isSelected ? "bg-orange-50" : (s.delayFlag || s.ghostingFlag) ? "bg-orange-50/50" : "hover:bg-secondary/30",
+                        isSelected ? "bg-orange-500/[0.08]" : (s.delayFlag || s.ghostingFlag) ? "bg-orange-500/[0.04]" : "hover:bg-white/[0.03]",
                       ].join(" ")}
                     >
                       {selectMode && (
                         <td className="px-3 py-3">
                           {isSelected
-                            ? <CheckSquare2 className="h-4 w-4 text-orange-600" />
-                            : <Square className="h-4 w-4 text-muted-foreground" />}
+                            ? <CheckSquare2 className="h-4 w-4 text-orange-400" />
+                            : <Square className="h-4 w-4 text-stone-600" />}
                         </td>
                       )}
                       <td className="px-4 py-3">
                         <Link
                           to={`/dashboard/shipments/${s.id}`}
                           onClick={(e) => selectMode && e.preventDefault()}
-                          className="font-medium text-foreground hover:text-primary truncate block max-w-[180px]"
+                          className="font-medium text-stone-200 hover:text-orange-400 truncate block max-w-[180px] transition-colors"
                         >
                           {s.goodsDescription}
                         </Link>
                         {(s.delayFlag || s.ghostingFlag) && (
-                          <span className="text-[10px] text-orange-600 font-medium">
+                          <span className="text-[10px] text-orange-400 font-medium">
                             {s.ghostingFlag ? "⚠ Ghosting risk" : "⚠ Delayed"}
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                      <td className="px-4 py-3 text-stone-500 hidden sm:table-cell">
                         <span className="block truncate max-w-[160px]">{s.pickupLocation} → {s.deliveryLocation}</span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{s.riderName || "—"}</td>
+                      <td className="px-4 py-3 text-stone-500 hidden md:table-cell">{s.riderName || "—"}</td>
                       <td className="px-4 py-3"><StatusBadge status={s.status as ShipmentStatus} /></td>
-                      <td className="px-4 py-3 text-right font-medium text-foreground hidden sm:table-cell">
+                      <td className="px-4 py-3 text-right font-medium text-stone-200 hidden sm:table-cell">
                         {formatNaira(s.totalCost)}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{formatDate(s.expectedDeliveryDate)}</td>
+                      <td className="px-4 py-3 text-stone-500 hidden lg:table-cell">{formatDate(s.expectedDeliveryDate)}</td>
                       <td className="px-4 py-3 hidden md:table-cell"><RiskBadge score={s.riskScore} /></td>
                     </tr>
                   );
@@ -246,16 +244,16 @@ export default function ShipmentsPage() {
 
       {/* Floating action bar */}
       {selectMode && selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full bg-foreground px-5 h-12 shadow-xl text-background text-sm font-medium">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full bg-[#0c1522] border border-white/[0.08] px-5 h-12 shadow-xl text-white text-sm font-medium">
           <span>{selected.size} selected</span>
-          <div className="w-px h-5 bg-background/30" />
+          <div className="w-px h-5 bg-white/[0.1]" />
           <button
             onClick={openBulkModal}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-orange-400 hover:text-orange-300 transition-colors"
           >
             <Layers className="h-4 w-4" /> Bulk hand over
           </button>
-          <button onClick={() => setSelected(new Set())} className="text-background/60 hover:text-background transition-colors">
+          <button onClick={() => setSelected(new Set())} className="text-stone-500 hover:text-stone-300 transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -263,14 +261,14 @@ export default function ShipmentsPage() {
 
       {/* Bulk handover modal */}
       {bulkOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/40">
-          <div className="relative w-full sm:max-w-sm rounded-t-xl sm:rounded-xl border border-border bg-white shadow-xl overflow-hidden">
-            <div className="flex items-start justify-between px-5 py-4 border-b border-border">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full sm:max-w-sm rounded-t-xl sm:rounded-xl border border-white/[0.08] bg-[#0c1522] shadow-2xl shadow-black/40 overflow-hidden">
+            <div className="flex items-start justify-between px-5 py-4 border-b border-white/[0.06]">
               <div>
-                <p className="text-sm font-semibold text-foreground">Bulk handover</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{selected.size} shipment{selected.size !== 1 ? "s" : ""} selected</p>
+                <p className="text-sm font-semibold text-white">Bulk handover</p>
+                <p className="text-[11px] text-stone-500 mt-0.5">{selected.size} shipment{selected.size !== 1 ? "s" : ""} selected</p>
               </div>
-              <button onClick={closeBulkModal} className="text-muted-foreground hover:text-foreground mt-0.5">
+              <button onClick={closeBulkModal} className="text-stone-600 hover:text-stone-300 mt-0.5 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -278,35 +276,35 @@ export default function ShipmentsPage() {
             <div className="p-5 space-y-4">
               {bulkStep === "choose-receiver" && (
                 <>
-                  <p className="text-xs text-muted-foreground">Who are you handing these shipments to?</p>
+                  <p className="text-xs text-stone-500">Who are you handing these shipments to?</p>
                   <div className="space-y-2">
                     {BULK_ACTOR_OPTIONS.map((opt, idx) => (
                       <button
                         key={`${opt.value}-${opt.internal}`}
                         onClick={() => setBulkActorIdx(idx)}
                         className={[
-                          "w-full rounded-md border px-3 py-2.5 text-left text-xs transition-colors",
+                          "w-full rounded-lg border px-3 py-2.5 text-left text-xs transition-all",
                           bulkActorIdx === idx
-                            ? "border-orange-400 bg-orange-50 text-orange-800 font-medium"
-                            : "border-border text-muted-foreground hover:border-orange-200",
+                            ? "border-orange-500/40 bg-orange-500/[0.08] text-orange-400 font-medium"
+                            : "border-white/[0.06] text-stone-500 hover:border-white/[0.12] hover:text-stone-300",
                         ].join(" ")}
                       >
                         {opt.label}
                         {opt.internal && (
-                          <span className="ml-2 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1">flat fee only</span>
+                          <span className="ml-2 text-[10px] text-emerald-400 bg-emerald-500/[0.1] border border-emerald-500/20 rounded px-1">flat fee only</span>
                         )}
                       </button>
                     ))}
                   </div>
                   {bulkError && (
-                    <p className="flex items-center gap-1.5 text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                    <p className="flex items-center gap-1.5 text-[11px] text-red-400 bg-red-500/[0.1] border border-red-500/20 rounded-lg px-3 py-2">
                       <AlertCircle className="h-3.5 w-3.5 shrink-0" />{bulkError}
                     </p>
                   )}
                   <button
                     onClick={handleInitiateBulk}
                     disabled={bulkWorking}
-                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-md bg-orange-600 text-white h-9 text-xs font-semibold hover:bg-orange-700 transition-colors disabled:opacity-60"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 text-white h-9 text-xs font-semibold hover:shadow-orange-500/20 hover:shadow-lg transition-all disabled:opacity-60"
                   >
                     {bulkWorking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <QrCode className="h-3.5 w-3.5" />}
                     Generate batch QR
@@ -316,37 +314,37 @@ export default function ShipmentsPage() {
 
               {bulkStep === "qr" && scanUrl && (
                 <div className="flex flex-col items-center gap-4">
-                  <p className="text-xs text-muted-foreground text-center">
+                  <p className="text-xs text-stone-500 text-center">
                     Ask the receiver to scan this code to confirm receipt of all {batchResult?.shipmentCount} shipments.
                   </p>
-                  <div className="rounded-lg border border-border p-3 bg-white">
+                  <div className="rounded-lg border border-white/[0.08] p-3 bg-white">
                     <QRCodeSVG value={scanUrl} size={180} />
                   </div>
                   {secondsLeft > 0 ? (
-                    <p className="text-xs font-medium text-amber-700">
+                    <p className="text-xs font-medium text-amber-400">
                       Expires in {mins}:{String(secs).padStart(2, "0")}
                     </p>
                   ) : (
-                    <p className="text-xs font-medium text-red-600">Expired — generate a new code</p>
+                    <p className="text-xs font-medium text-red-400">Expired — generate a new code</p>
                   )}
                   <button
                     onClick={async () => { await navigator.clipboard.writeText(scanUrl); }}
                     disabled={secondsLeft === 0}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border h-8 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.06] h-8 text-xs text-stone-500 hover:text-stone-300 disabled:opacity-40 transition-colors"
                   >
                     Copy link
                   </button>
                   {secondsLeft === 0 && (
                     <button
                       onClick={() => { setBulkStep("choose-receiver"); setBatchResult(null); }}
-                      className="w-full inline-flex items-center justify-center rounded-md bg-orange-600 text-white h-8 text-xs font-semibold hover:bg-orange-700"
+                      className="w-full inline-flex items-center justify-center rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 text-white h-8 text-xs font-semibold"
                     >
                       Regenerate
                     </button>
                   )}
                   <button
                     onClick={() => setBulkStep("done")}
-                    className="text-xs text-muted-foreground underline underline-offset-2"
+                    className="text-xs text-stone-500 underline underline-offset-2 hover:text-stone-300 transition-colors"
                   >
                     Receiver confirmed in person
                   </button>
@@ -355,11 +353,13 @@ export default function ShipmentsPage() {
 
               {bulkStep === "done" && (
                 <div className="flex flex-col items-center gap-3 py-4">
-                  <CheckCircle2 className="h-10 w-10 text-green-600" />
-                  <p className="text-sm font-semibold text-foreground">Batch handover complete</p>
+                  <div className="h-12 w-12 rounded-full bg-emerald-500/[0.15] flex items-center justify-center">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-white">Batch handover complete</p>
                   <button
                     onClick={closeBulkModal}
-                    className="rounded-md bg-foreground text-background h-9 px-4 text-xs font-medium hover:bg-foreground/90"
+                    className="rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 text-white h-9 px-4 text-xs font-medium"
                   >
                     Done
                   </button>

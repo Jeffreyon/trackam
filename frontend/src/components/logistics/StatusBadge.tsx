@@ -2,13 +2,13 @@ import type { ShipmentStatus, RiskScore } from "@/services/logistics";
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<ShipmentStatus, string> = {
-  pending:     "bg-stone-100 text-stone-600 border-stone-200",
-  in_transit:  "bg-blue-50 text-blue-700 border-blue-200",
-  delivered:   "bg-green-50 text-green-700 border-green-200",
-  failed:      "bg-red-50 text-red-700 border-red-200",
-  ghosted:     "bg-orange-50 text-orange-700 border-orange-200",
-  handed_over: "bg-purple-50 text-purple-700 border-purple-200",
-  disputed:    "bg-rose-50 text-rose-700 border-rose-200",
+  pending:     "bg-stone-500/[0.12] text-stone-400 border-stone-500/20",
+  in_transit:  "bg-blue-500/[0.1] text-blue-400 border-blue-500/20",
+  delivered:   "bg-emerald-500/[0.1] text-emerald-400 border-emerald-500/20",
+  failed:      "bg-red-500/[0.1] text-red-400 border-red-500/20",
+  ghosted:     "bg-orange-500/[0.1] text-orange-400 border-orange-500/20",
+  handed_over: "bg-purple-500/[0.1] text-purple-400 border-purple-500/20",
+  disputed:    "bg-rose-500/[0.1] text-rose-400 border-rose-500/20",
 };
 
 const STATUS_LABELS: Record<ShipmentStatus, string> = {
@@ -22,9 +22,9 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
 };
 
 const RISK_STYLES: Record<RiskScore, string> = {
-  low:    "bg-green-50 text-green-700 border-green-200",
-  medium: "bg-amber-50 text-amber-700 border-amber-200",
-  high:   "bg-red-50 text-red-700 border-red-200",
+  low:    "bg-emerald-500/[0.1] text-emerald-400 border-emerald-500/20",
+  medium: "bg-amber-500/[0.1] text-amber-400 border-amber-500/20",
+  high:   "bg-red-500/[0.1] text-red-400 border-red-500/20",
 };
 
 interface StatusBadgeProps { status: ShipmentStatus; className?: string }

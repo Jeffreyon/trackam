@@ -35,17 +35,17 @@ export default function NotificationsPage() {
   }
 
   const loadingSkeleton = (
-    <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+    <ul className="divide-y divide-white/[0.04] rounded-xl border border-white/[0.06] bg-white/[0.03]">
       {Array.from({ length: 3 }).map((_, idx) => (
         <li
           key={idx}
           className="flex items-start gap-3 px-4 py-3 text-sm animate-pulse"
         >
-          <div className="mt-1 h-2 w-2 rounded-full bg-muted/60" />
+          <div className="mt-1 h-2 w-2 rounded-full bg-white/[0.06]" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-40 rounded-md bg-muted/60" />
-            <div className="h-3 w-full rounded-md bg-muted/40" />
-            <div className="h-2 w-24 rounded-md bg-muted/30" />
+            <div className="h-3 w-40 rounded-md bg-white/[0.06]" />
+            <div className="h-3 w-full rounded-md bg-white/[0.04]" />
+            <div className="h-2 w-24 rounded-md bg-white/[0.03]" />
           </div>
         </li>
       ))}
@@ -56,15 +56,15 @@ export default function NotificationsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold">Notifications</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-base font-semibold text-white">Notifications</h2>
+          <p className="text-sm text-stone-500">
             Recent updates about your account and workspace activity.
           </p>
         </div>
         <button
           type="button"
           onClick={handleMarkAllRead}
-          className="text-xs rounded-md border border-border bg-background px-3 py-1.5 text-foreground hover:bg-muted/60 disabled:opacity-60"
+          className="text-xs rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-stone-400 hover:bg-white/[0.06] hover:text-stone-300 disabled:opacity-60 transition-colors"
           disabled={notifications.every((n) => n.read)}
         >
           Mark all as read
@@ -75,25 +75,25 @@ export default function NotificationsPage() {
         ? loadingSkeleton
         : notifications.length === 0
         ? (
-          <div className="rounded-xl border border-dashed border-border bg-card/40 p-4 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.03] p-4 text-sm text-stone-500">
             You don&apos;t have any notifications yet.
           </div>
           )
         : (
-          <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+          <ul className="divide-y divide-white/[0.04] rounded-xl border border-white/[0.06] bg-white/[0.03]">
             {notifications.map((n) => (
               <li
                 key={n.id}
-                className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-muted/40 transition-colors"
+                className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-white/[0.04] transition-colors"
               >
                 <div
-                  className="mt-1 h-2 w-2 rounded-full bg-primary/70"
+                  className="mt-1 h-2 w-2 rounded-full bg-orange-500"
                   hidden={n.read}
                 />
                 <div className="flex-1">
-                  <div className="font-medium">{n.title}</div>
-                  <div className="text-muted-foreground">{n.body}</div>
-                  <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <div className="font-medium text-stone-200">{n.title}</div>
+                  <div className="text-stone-500">{n.body}</div>
+                  <div className="mt-1 text-[11px] uppercase tracking-wide text-stone-600">
                     {new Date(n.createdAt).toLocaleString()}
                   </div>
                 </div>
