@@ -28,6 +28,13 @@ export interface DispatchRun {
   riderName: string | null;
   status: RunStatus;
   notes: string | null;
+  distanceKm: number;
+  riderFee: number;       // kobo
+  fuelCost: number;       // kobo
+  totalCost: number;      // kobo
+  expectedDeliveryDate: string | null;
+  delayFlag: boolean;
+  ghostingFlag: boolean;
   departedAt: string | null;
   completedAt: string | null;
   legCount: number;
@@ -49,10 +56,24 @@ export const runsApi = {
   get: (id: string) =>
     apiClient.get<DispatchRunDetail>(`/api/runs/${id}`).then((r) => r.data),
 
-  create: (data: { name?: string; riderId?: string; notes?: string }) =>
+  create: (data: {
+    name?: string;
+    riderId?: string;
+    notes?: string;
+    distanceKm?: number;
+    riderFee?: number;          // NGN (not kobo) — backend converts
+    expectedDeliveryDate?: string;
+  }) =>
     apiClient.post<DispatchRun>("/api/runs", data).then((r) => r.data),
 
-  update: (id: string, data: { name?: string; riderId?: string; notes?: string }) =>
+  update: (id: string, data: {
+    name?: string;
+    riderId?: string;
+    notes?: string;
+    distanceKm?: number;
+    riderFee?: number;
+    expectedDeliveryDate?: string;
+  }) =>
     apiClient.patch<DispatchRun>(`/api/runs/${id}`, data).then((r) => r.data),
 
   updateStatus: (id: string, status: RunStatus) =>

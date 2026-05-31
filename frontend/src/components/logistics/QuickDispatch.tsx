@@ -23,6 +23,9 @@ export function QuickDispatch({ onCreated }: Props) {
   const [runName, setRunName] = useState("");
   const [riderId, setRiderId] = useState("");
   const [notes, setNotes] = useState("");
+  const [distanceKm, setDistanceKm] = useState("");
+  const [riderFee, setRiderFee] = useState("");
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -42,6 +45,9 @@ export function QuickDispatch({ onCreated }: Props) {
     setRunName("");
     setRiderId("");
     setNotes("");
+    setDistanceKm("");
+    setRiderFee("");
+    setExpectedDeliveryDate("");
     setError("");
     setOpen(true);
   }
@@ -50,6 +56,9 @@ export function QuickDispatch({ onCreated }: Props) {
     setSelectedRoute(route);
     setRunName(route.name);
     setRiderId(route.defaultRiderId || "");
+    setDistanceKm(route.distanceKm ? String(route.distanceKm) : "");
+    // route.defaultRiderFee is in kobo — display as NGN
+    setRiderFee(route.defaultRiderFee ? String(Math.round(route.defaultRiderFee / 100)) : "");
     setError("");
     setStep("confirm");
   }
@@ -66,6 +75,9 @@ export function QuickDispatch({ onCreated }: Props) {
         name: runName.trim() || undefined,
         riderId,
         notes: notes.trim() || undefined,
+        distanceKm: distanceKm ? parseInt(distanceKm, 10) : undefined,
+        riderFee: riderFee ? parseInt(riderFee, 10) : undefined,
+        expectedDeliveryDate: expectedDeliveryDate || undefined,
       });
       setOpen(false);
       onCreated?.();
@@ -192,6 +204,46 @@ export function QuickDispatch({ onCreated }: Props) {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-stone-300 mb-1.5">
+                        Distance <span className="text-stone-600 font-normal">(km)</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={distanceKm}
+                        onChange={(e) => setDistanceKm(e.target.value)}
+                        placeholder="e.g. 120"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-stone-300 mb-1.5">
+                        Rider fee <span className="text-stone-600 font-normal">(₦)</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={riderFee}
+                        onChange={(e) => setRiderFee(e.target.value)}
+                        placeholder="e.g. 15000"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-stone-300 mb-1.5">
+                      Expected delivery <span className="text-stone-600 font-normal">(optional)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={expectedDeliveryDate}
+                      onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                      className={inputCls}
+                    />
+                    <p className="text-[10px] text-stone-600 mt-1">If set, the run is flagged as delayed once this date passes without completion.</p>
                   </div>
 
                   <div>

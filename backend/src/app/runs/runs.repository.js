@@ -3,19 +3,26 @@ const { query } = require("../../core/db/postgres");
 function mapRun(row) {
   if (!row) return null;
   return {
-    id:          row.id,
-    userId:      row.user_id,
-    name:        row.name || null,
-    riderId:     row.rider_id || null,
-    riderName:   row.rider_name || null,
-    status:      row.status,
-    notes:       row.notes || null,
-    departedAt:  row.departed_at || null,
-    completedAt: row.completed_at || null,
-    legCount:    Number(row.leg_count || 0),
-    totalValue:  Number(row.total_value || 0),
-    createdAt:   row.created_at,
-    updatedAt:   row.updated_at,
+    id:                    row.id,
+    userId:                row.user_id,
+    name:                  row.name || null,
+    riderId:               row.rider_id || null,
+    riderName:             row.rider_name || null,
+    status:                row.status,
+    notes:                 row.notes || null,
+    distanceKm:            Number(row.distance_km || 0),
+    riderFee:              Number(row.rider_fee || 0),
+    fuelCost:              Number(row.fuel_cost || 0),
+    totalCost:             Number(row.total_cost || 0),
+    expectedDeliveryDate:  row.expected_delivery_date || null,
+    delayFlag:             row.delay_flag || false,
+    ghostingFlag:          row.ghosting_flag || false,
+    departedAt:            row.departed_at || null,
+    completedAt:           row.completed_at || null,
+    legCount:              Number(row.leg_count || 0),
+    totalValue:            Number(row.total_value || 0),
+    createdAt:             row.created_at,
+    updatedAt:             row.updated_at,
   };
 }
 
@@ -38,11 +45,16 @@ function mapLeg(row) {
   };
 }
 
-async function create({ userId, name, riderId, notes }) {
+async function create({ userId, name, riderId, notes, distanceKm, riderFee, fuelCost, totalCost, expectedDeliveryDate }) {
   const result = await query(
-    `INSERT INTO dispatch_runs (user_id, name, rider_id, notes)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [userId, name || null, riderId || null, notes || null]
+    `INSERT INTO dispatch_runs
+       (user_id, name, rider_id, notes, distance_km, rider_fee, fuel_cost, total_cost, expected_delivery_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [
+      userId, name || null, riderId || null, notes || null,
+      distanceKm || 0, riderFee || 0, fuelCost || 0, totalCost || 0,
+      expectedDeliveryDate || null,
+    ]
   );
   return getById(result.rows[0].id, userId);
 }
@@ -152,7 +164,7 @@ async function removeLeg(runId, shipmentId, userId) {
 async function updateStatus(runId, userId, status) {
   if (status === "in_transit") {
     const r = await query(
-      `UPDATE dispatch_runs SET status=$1, departed_at=NOW(), updated_at=NOW()
+      `UPDATE dispatch_runs SET status=$1, departed_at=NOW(), last_status_update_at=NOW(), updated_at=NOW()
        WHERE id=$2 AND user_id=$3 RETURNING id`,
       [status, runId, userId]
     );
@@ -164,7 +176,7 @@ async function updateStatus(runId, userId, status) {
     );
   } else if (status === "completed") {
     const r = await query(
-      `UPDATE dispatch_runs SET status=$1, completed_at=NOW(), updated_at=NOW()
+      `UPDATE dispatch_runs SET status=$1, completed_at=NOW(), last_status_update_at=NOW(), updated_at=NOW()
        WHERE id=$2 AND user_id=$3 RETURNING id`,
       [status, runId, userId]
     );
@@ -176,7 +188,7 @@ async function updateStatus(runId, userId, status) {
     );
   } else if (status === "cancelled") {
     const r = await query(
-      `UPDATE dispatch_runs SET status=$1, updated_at=NOW()
+      `UPDATE dispatch_runs SET status=$1, last_status_update_at=NOW(), updated_at=NOW()
        WHERE id=$2 AND user_id=$3 RETURNING id`,
       [status, runId, userId]
     );
@@ -188,7 +200,7 @@ async function updateStatus(runId, userId, status) {
     );
   } else {
     const r = await query(
-      `UPDATE dispatch_runs SET status=$1, updated_at=NOW()
+      `UPDATE dispatch_runs SET status=$1, last_status_update_at=NOW(), updated_at=NOW()
        WHERE id=$2 AND user_id=$3 RETURNING id`,
       [status, runId, userId]
     );
@@ -203,9 +215,14 @@ async function update(runId, userId, fields) {
   const vals = [];
   let idx = 1;
 
-  if ("name" in fields)    { sets.push(`name = $${idx++}`);     vals.push(fields.name || null); }
-  if ("riderId" in fields) { sets.push(`rider_id = $${idx++}`); vals.push(fields.riderId || null); }
-  if ("notes" in fields)   { sets.push(`notes = $${idx++}`);    vals.push(fields.notes || null); }
+  if ("name" in fields)                 { sets.push(`name = $${idx++}`);                   vals.push(fields.name || null); }
+  if ("riderId" in fields)              { sets.push(`rider_id = $${idx++}`);               vals.push(fields.riderId || null); }
+  if ("notes" in fields)                { sets.push(`notes = $${idx++}`);                  vals.push(fields.notes || null); }
+  if ("distanceKm" in fields)           { sets.push(`distance_km = $${idx++}`);            vals.push(fields.distanceKm || 0); }
+  if ("riderFee" in fields)             { sets.push(`rider_fee = $${idx++}`);              vals.push(fields.riderFee || 0); }
+  if ("fuelCost" in fields)             { sets.push(`fuel_cost = $${idx++}`);              vals.push(fields.fuelCost || 0); }
+  if ("totalCost" in fields)            { sets.push(`total_cost = $${idx++}`);             vals.push(fields.totalCost || 0); }
+  if ("expectedDeliveryDate" in fields) { sets.push(`expected_delivery_date = $${idx++}`); vals.push(fields.expectedDeliveryDate || null); }
 
   if (sets.length === 0) return getById(runId, userId);
 
@@ -221,4 +238,26 @@ async function update(runId, userId, fields) {
   return getById(runId, userId);
 }
 
-module.exports = { create, listByUser, getById, addLeg, removeLeg, updateStatus, update };
+async function flagDelaysAndGhosting(userId, ghostThresholdHours) {
+  await query(
+    `UPDATE dispatch_runs
+     SET delay_flag = TRUE, updated_at = NOW()
+     WHERE user_id = $1
+       AND status IN ('loading', 'in_transit')
+       AND expected_delivery_date < NOW()::date
+       AND delay_flag = FALSE`,
+    [userId]
+  );
+
+  await query(
+    `UPDATE dispatch_runs
+     SET ghosting_flag = TRUE, updated_at = NOW()
+     WHERE user_id = $1
+       AND status = 'in_transit'
+       AND last_status_update_at < NOW() - ($2 || ' hours')::interval
+       AND ghosting_flag = FALSE`,
+    [userId, ghostThresholdHours]
+  );
+}
+
+module.exports = { create, listByUser, getById, addLeg, removeLeg, updateStatus, update, flagDelaysAndGhosting };

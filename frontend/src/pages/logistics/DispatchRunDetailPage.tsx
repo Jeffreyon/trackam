@@ -254,8 +254,47 @@ export default function DispatchRunDetailPage() {
           <div className="text-right shrink-0">
             <p className="text-[11px] text-stone-600">Total value</p>
             <p className="text-sm font-bold text-white">{formatNaira(run.totalValue)}</p>
+            {run.totalCost > 0 && (
+              <>
+                <p className="text-[11px] text-stone-600 mt-1.5">Total cost</p>
+                <p className="text-xs font-semibold text-stone-300">{formatNaira(run.totalCost)}</p>
+              </>
+            )}
           </div>
         </div>
+
+        {(run.delayFlag || run.ghostingFlag) && (
+          <div className={`rounded-lg border p-3 flex items-start gap-2 ${run.ghostingFlag ? "border-red-500/20 bg-red-500/[0.06]" : "border-amber-500/20 bg-amber-500/[0.06]"}`}>
+            <AlertCircle className={`h-4 w-4 shrink-0 mt-0.5 ${run.ghostingFlag ? "text-red-400" : "text-amber-400"}`} />
+            <div className="text-xs">
+              <p className={`font-semibold ${run.ghostingFlag ? "text-red-300" : "text-amber-300"}`}>
+                {run.ghostingFlag ? "Ghosting risk" : "Delayed"}
+              </p>
+              <p className={`mt-0.5 ${run.ghostingFlag ? "text-red-400/70" : "text-amber-400/70"}`}>
+                {run.ghostingFlag
+                  ? "No status update for an extended period. Contact the rider to confirm custody."
+                  : `Past expected delivery date${run.expectedDeliveryDate ? ` (${new Date(run.expectedDeliveryDate).toLocaleDateString("en-NG", { day: "2-digit", month: "short" })})` : ""}.`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {(run.distanceKm > 0 || run.totalCost > 0) && (
+          <div className="grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-3 text-xs">
+            <div>
+              <p className="text-[11px] text-stone-600">Distance</p>
+              <p className="font-medium text-stone-200">{run.distanceKm} km</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-stone-600">Fuel cost</p>
+              <p className="font-medium text-stone-200">{formatNaira(run.fuelCost)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-stone-600">Rider fee</p>
+              <p className="font-medium text-stone-200">{formatNaira(run.riderFee)}</p>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-3 text-xs">
           <div>
@@ -298,6 +337,15 @@ export default function DispatchRunDetailPage() {
             </p>
           </div>
         </div>
+
+        {run.expectedDeliveryDate && (
+          <div className="text-xs text-stone-500">
+            <span className="text-[11px] text-stone-600">Expected delivery: </span>
+            <span className="font-medium text-stone-300">
+              {new Date(run.expectedDeliveryDate).toLocaleDateString("en-NG", { day: "2-digit", month: "short", year: "numeric" })}
+            </span>
+          </div>
+        )}
 
         {nextStatus && (
           <button onClick={() => handleStatusChange(nextStatus)} disabled={updating}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Truck, Package, CheckCircle2, Navigation, XCircle, Clock } from "lucide-react";
+import { Truck, Package, CheckCircle2, Navigation, XCircle, Clock, AlertCircle } from "lucide-react";
 import { runsApi, type DispatchRun, type RunStatus } from "@/services/runs";
 import { formatNaira } from "@/lib/format";
 import { QuickDispatch } from "@/components/logistics/QuickDispatch";
@@ -97,6 +97,15 @@ export default function DispatchRunsPage() {
                       <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
                       {cfg.label}
                     </span>
+                    {(run.ghostingFlag || run.delayFlag) && (
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${run.ghostingFlag ? "bg-red-500/[0.1] text-red-400 border-red-500/20" : "bg-amber-500/[0.1] text-amber-400 border-amber-500/20"}`}
+                        title={run.ghostingFlag ? "No status update for extended period" : "Past expected delivery date"}
+                      >
+                        <AlertCircle className="h-3 w-3" />
+                        {run.ghostingFlag ? "Ghosting" : "Delayed"}
+                      </span>
+                    )}
                   </div>
                 </div>
                 {run.legCount === 0 && run.status === "loading" && (
