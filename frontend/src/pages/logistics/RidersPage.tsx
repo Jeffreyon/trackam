@@ -52,9 +52,9 @@ export default function RidersPage() {
   }
 
   return (
-    <div className="max-w-4xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-sm">
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-600" />
           <input
             type="search"
@@ -64,19 +64,21 @@ export default function RidersPage() {
             className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] pl-9 pr-3 h-9 text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
           />
         </div>
-        <p className="text-xs text-stone-500 hidden sm:block">
-          {riders.length} active rider{riders.length !== 1 ? "s" : ""}
-        </p>
-        <button
-          onClick={() => { setEditingRider(null); setShowForm(true); }}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 px-3 h-9 text-xs font-semibold text-white shadow-sm shadow-orange-500/20 hover:shadow-orange-500/30 transition-all shrink-0"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add rider
-        </button>
+        <div className="ml-auto flex items-center gap-3">
+          <p className="text-xs text-stone-500 hidden sm:block">
+            {riders.length} active rider{riders.length !== 1 ? "s" : ""}
+          </p>
+          <button
+            onClick={() => { setEditingRider(null); setShowForm(true); }}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 px-3 h-9 text-xs font-semibold text-white shadow-sm shadow-orange-500/20 hover:shadow-orange-500/30 transition-all shrink-0"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add rider
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="h-32 rounded-xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
           ))}
@@ -106,7 +108,7 @@ export default function RidersPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((rider) => (
             <RiderCard
               key={rider.id}
