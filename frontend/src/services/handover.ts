@@ -264,7 +264,43 @@ export const custodianApi = {
       { actorType },
       { headers: { Authorization: `Bearer ${custodianToken}` } }
     ).then((r) => r.data),
+
+  // ── Find-my-custody flow ─────────────────────────────────────────────────
+  requestOtpByPhone: (phone: string) =>
+    axios.post<{ sent: boolean; channel?: string }>(
+      `${publicBase()}/api/custodian/request-otp-by-phone`,
+      { phone }
+    ).then((r) => r.data),
+
+  verifyOtpByPhone: (phone: string, otp: string) =>
+    axios.post<{ sessions: CustodySessionSummary[] }>(
+      `${publicBase()}/api/custodian/verify-otp-by-phone`,
+      { phone, otp }
+    ).then((r) => r.data),
 };
+
+export interface CustodySessionSummary {
+  sessionId:          string;
+  token:              string;
+  mode:               "run" | "single" | "unknown";
+  receiverName:       string;
+  receiverActorType:  ActorType;
+  // single-shipment sessions
+  shipment: {
+    goodsDescription: string;
+    pickupLocation:   string;
+    deliveryLocation: string;
+    status:           string;
+  } | null;
+  waybillId: string | null;
+  // run sessions
+  runId:              string | null;
+  remainingShipments: number | null;
+  totalShipments:     number | null;
+  pickupSample:       string | null;
+  deliverySample:     string | null;
+  createdAt:          string;
+}
 
 export const publicBatchApi = {
   getInfo: (token: string) =>

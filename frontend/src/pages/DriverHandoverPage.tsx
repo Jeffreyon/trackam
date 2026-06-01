@@ -5,16 +5,17 @@ import {
   Package, Phone, Hash, ChevronRight, Layers, Truck,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { custodianApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type RunShipmentItem } from "@/services/handover";
+import { custodianApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type RunShipmentItem, type CustodySessionSummary } from "@/services/handover";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PhoneInput } from "@/components/PhoneInput";
 
 type Phase =
   | "loading"
-  | "find-session"   // no ref param — driver enters phone to get link resent
-  | "resent"         // link resent successfully
-  | "phone"
-  | "otp"
+  | "find-phone"     // no ref param — driver enters phone to get verification code
+  | "find-otp"       // driver enters the 6-digit code
+  | "session-picker" // verified — pick from list of active custody sessions
+  | "phone"          // legacy SMS-link path: enter phone for one known session
+  | "otp"            // legacy SMS-link path: enter OTP for that session
   | "custody"        // single-shipment session
   | "run-custody"    // run session — list of remaining shipments
   | "actor-select"
@@ -35,6 +36,9 @@ export default function DriverHandoverPage() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [custodianToken, setCustodianToken] = useState<string | null>(null);
+
+  // Find-my-custody picker — populated after verify-otp-by-phone
+  const [discoveredSessions, setDiscoveredSessions] = useState<CustodySessionSummary[]>([]);
 
   // Custody info
   const [custody, setCustody] = useState<{
@@ -80,7 +84,7 @@ export default function DriverHandoverPage() {
     : null;
 
   useEffect(() => {
-    if (!sessionId) setPhase("find-session");
+    if (!sessionId) setPhase("find-phone");
     else setPhase("phone");
   }, [sessionId]);
 
@@ -127,6 +131,67 @@ export default function DriverHandoverPage() {
       setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Invalid or expired OTP.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // ── Find-my-custody flow ──────────────────────────────────────────────────
+
+  async function handleRequestOtpByPhone(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+    try {
+      await custodianApi.requestOtpByPhone(phone);
+      setOtp("");
+      setPhase("find-otp");
+    } catch (err: unknown) {
+      setError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "Could not send code. Check the number and try again."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleVerifyOtpByPhone(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+    try {
+      const result = await custodianApi.verifyOtpByPhone(phone, otp);
+      setDiscoveredSessions(result.sessions || []);
+      setPhase("session-picker");
+    } catch (err: unknown) {
+      setError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "Invalid or expired code."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function openDiscoveredSession(session: CustodySessionSummary) {
+    setCustodianToken(session.token);
+    try {
+      const info = await custodianApi.getMe(session.token);
+      setCustody(info);
+      if (info.mode === "run") {
+        setPhase("run-custody");
+      } else {
+        if (info.waybillId) {
+          publicWaybillApi.getChain(info.waybillId)
+            .then((data: { chain: typeof waybillChain }) => setWaybillChain(data.chain))
+            .catch(() => {});
+        }
+        setPhase("custody");
+      }
+    } catch (err: unknown) {
+      setError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "Could not load this custody session."
+      );
     }
   }
 
@@ -184,20 +249,9 @@ export default function DriverHandoverPage() {
       <PublicNav />
       <main className="flex-1 flex flex-col px-4 pt-24 pb-12 max-w-md mx-auto w-full">
 
-        {/* Find session — no ref param, driver enters phone to get link re-sent */}
-        {phase === "find-session" && (
-          <form onSubmit={async (e) => {
-            e.preventDefault();
-            setSubmitting(true);
-            try {
-              await custodianApi.resendLink(phone);
-              setPhase("resent");
-            } catch (err: unknown) {
-              setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "No active session found for this number.");
-            } finally {
-              setSubmitting(false);
-            }
-          }} className="space-y-5">
+        {/* Find-my-custody — phase 1: enter phone */}
+        {phase === "find-phone" && (
+          <form onSubmit={handleRequestOtpByPhone} className="space-y-5">
             <div>
               <div className="flex items-center gap-2.5 mb-2">
                 <div className="h-9 w-9 rounded-lg bg-purple-500/15 flex items-center justify-center">
@@ -205,11 +259,11 @@ export default function DriverHandoverPage() {
                 </div>
                 <div>
                   <h1 className="text-base font-semibold text-white">Driver handover</h1>
-                  <p className="text-[11px] text-stone-500">Find your custody link</p>
+                  <p className="text-[11px] text-stone-500">Find your custody</p>
                 </div>
               </div>
               <p className="text-xs text-stone-400 mt-2">
-                Enter the phone number you used when you received the package. We'll re-send your handover link via SMS.
+                Enter the phone number on file. We'll send you a one-time code so you can see every custody session assigned to you.
               </p>
             </div>
             <div>
@@ -223,30 +277,161 @@ export default function DriverHandoverPage() {
                 size="md"
               />
             </div>
-            {error && <p className="text-xs text-red-600">{error}</p>}
+            {error && <p className="text-xs text-red-400">{error}</p>}
             <button
               type="submit"
               disabled={submitting}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-purple-700 text-white h-11 text-sm font-semibold hover:bg-purple-800 disabled:opacity-60"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
-              Re-send my link
+              Send code
             </button>
           </form>
         )}
 
-        {/* Link resent */}
-        {phase === "resent" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-green-500/15 flex items-center justify-center">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-            </div>
+        {/* Find-my-custody — phase 2: enter OTP */}
+        {phase === "find-otp" && (
+          <form onSubmit={handleVerifyOtpByPhone} className="space-y-5">
             <div>
-              <p className="text-sm font-semibold text-white">Link sent</p>
-              <p className="text-xs text-stone-400 mt-1">
-                Check your SMS for the handover link and tap it to continue.
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="h-9 w-9 rounded-lg bg-purple-500/15 flex items-center justify-center">
+                  <Hash className="h-4.5 w-4.5 text-purple-400" />
+                </div>
+                <div>
+                  <h1 className="text-base font-semibold text-white">Enter your code</h1>
+                  <p className="text-[11px] text-stone-500">We sent it to {phone || "your phone"}</p>
+                </div>
+              </div>
+              <p className="text-xs text-stone-400 mt-2">
+                Check your SMS. If it doesn't arrive, we'll have sent it to the email on file instead.
               </p>
             </div>
+            <div>
+              <label className="text-xs font-medium text-white block mb-1.5">
+                6-digit code <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                autoFocus
+                inputMode="numeric"
+                pattern="\d{6}"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                placeholder="123456"
+                className="w-full rounded-md border border-white/[0.08] bg-white/[0.06] px-3 h-11 text-center font-mono tracking-[0.4em] text-base text-white placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+              />
+            </div>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            <button
+              type="submit"
+              disabled={submitting || otp.length < 6}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-purple-700 text-white h-11 text-sm font-semibold hover:bg-purple-800 disabled:opacity-60"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+              Verify
+            </button>
+            <button
+              type="button"
+              onClick={() => { setOtp(""); setError(""); setPhase("find-phone"); }}
+              className="w-full text-xs text-stone-500 hover:text-stone-300 transition-colors"
+            >
+              Use a different phone number
+            </button>
+          </form>
+        )}
+
+        {/* Find-my-custody — phase 3: pick a session */}
+        {phase === "session-picker" && (
+          <div className="space-y-5">
+            <div>
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="h-9 w-9 rounded-lg bg-purple-500/15 flex items-center justify-center">
+                  <Truck className="h-4.5 w-4.5 text-purple-400" />
+                </div>
+                <div>
+                  <h1 className="text-base font-semibold text-white">Your active custody</h1>
+                  <p className="text-[11px] text-stone-500">
+                    {discoveredSessions.length === 0
+                      ? "No active sessions found"
+                      : `${discoveredSessions.length} session${discoveredSessions.length !== 1 ? "s" : ""} assigned to ${phone}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {discoveredSessions.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-white/[0.08] bg-white/[0.03] py-10 text-center space-y-2">
+                <div className="flex justify-center">
+                  <div className="h-10 w-10 rounded-lg bg-white/[0.06] flex items-center justify-center">
+                    <Package className="h-5 w-5 text-stone-500" />
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-stone-300">No custody assigned to you</p>
+                <p className="text-xs text-stone-500 max-w-xs mx-auto">
+                  When an operator dispatches a run or hands off a shipment to your phone, it'll show up here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {discoveredSessions.map((session) => (
+                  <button
+                    key={session.sessionId}
+                    type="button"
+                    onClick={() => openDiscoveredSession(session)}
+                    className="w-full text-left rounded-lg border border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06] hover:border-purple-500/30 p-4 transition-all group"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          {session.mode === "run" ? (
+                            <Layers className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                          ) : (
+                            <Package className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                          )}
+                          <p className="text-xs font-semibold text-white">
+                            {session.mode === "run"
+                              ? `Run with ${session.remainingShipments ?? 0} shipment${session.remainingShipments !== 1 ? "s" : ""} remaining`
+                              : (session.shipment?.goodsDescription || "Shipment")}
+                          </p>
+                        </div>
+                        {session.mode === "run" ? (
+                          session.pickupSample && session.deliverySample && (
+                            <p className="text-[11px] text-stone-500 truncate flex items-center gap-1">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              {session.pickupSample} → {session.deliverySample}
+                              {session.totalShipments && session.totalShipments > 1 ? " · +more" : ""}
+                            </p>
+                          )
+                        ) : (
+                          session.shipment && (
+                            <p className="text-[11px] text-stone-500 truncate flex items-center gap-1">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              {session.shipment.pickupLocation} → {session.shipment.deliveryLocation}
+                            </p>
+                          )
+                        )}
+                        <p className="text-[10px] text-stone-600 mt-1">
+                          Started {new Date(session.createdAt).toLocaleString("en-NG", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-purple-500/[0.1] border border-purple-500/20 px-1.5 py-0.5 text-purple-300">
+                            {ACTOR_LABELS[session.receiverActorType]}
+                          </span>
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-stone-600 group-hover:text-purple-400 transition-colors shrink-0" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => { setOtp(""); setError(""); setPhase("find-phone"); }}
+              className="w-full text-xs text-stone-500 hover:text-stone-300 transition-colors"
+            >
+              Use a different phone number
+            </button>
           </div>
         )}
 
