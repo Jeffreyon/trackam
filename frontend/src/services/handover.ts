@@ -201,6 +201,14 @@ export interface CustodyInfo {
   mode?: "run";
   runId?: string;
   shipments?: RunShipmentItem[];
+  startedAt?: string;
+  progress?: {
+    total: number;
+    delivered: number;
+    remaining: number;
+    totalValue: number;      // kobo
+    remainingValue: number;  // kobo
+  };
 }
 
 export interface BatchTokenInfo {

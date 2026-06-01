@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Loader2, ShieldCheck, MapPin, ArrowRight, CheckCircle2,
-  Package, Phone, Hash, ChevronRight, Layers, Truck,
+  Package, Phone, Hash, ChevronRight, Layers, Truck, Navigation, LogOut,
 } from "lucide-react";
+import { formatNaira } from "@/lib/format";
 import { QRCodeSVG } from "qrcode.react";
 import { custodianApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type RunShipmentItem, type CustodySessionSummary } from "@/services/handover";
 import { PublicNav } from "@/components/layout/PublicNav";
@@ -50,6 +51,11 @@ export default function DriverHandoverPage() {
     mode?: "run";
     runId?: string;
     shipments?: RunShipmentItem[];
+    startedAt?: string;
+    progress?: {
+      total: number; delivered: number; remaining: number;
+      totalValue: number; remainingValue: number;
+    };
   } | null>(null);
 
   // Run session — which shipment the driver is handing over next
@@ -597,70 +603,200 @@ export default function DriverHandoverPage() {
         )}
 
         {/* Run custody — list of remaining shipments */}
-        {phase === "run-custody" && custody?.mode === "run" && (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-purple-600 shrink-0" />
-                <p className="text-xs font-semibold text-white">
-                  {custody.name} — {custody.shipments?.length ?? 0} shipment{(custody.shipments?.length ?? 0) !== 1 ? "s" : ""} in your custody
-                </p>
-              </div>
-              <p className="text-[11px] text-stone-400">
-                Tap a shipment to hand it over individually, or hand over all at once.
-              </p>
-            </div>
+        {phase === "run-custody" && custody?.mode === "run" && (() => {
+          const progress = custody.progress;
+          const remainingShipments = custody.shipments ?? [];
+          const remainingCount = progress?.remaining ?? remainingShipments.length;
+          const totalCount     = progress?.total ?? remainingShipments.length;
+          const deliveredCount = progress?.delivered ?? 0;
+          const pctDelivered   = totalCount > 0 ? Math.round((deliveredCount / totalCount) * 100) : 0;
+          const startedAt = custody.startedAt ? new Date(custody.startedAt) : null;
 
-            {(custody.shipments?.length ?? 0) > 1 && (
-              <button
-                onClick={() => {
-                  setBulkMode(true);
-                  setActiveRunShipment(null);
-                  setReceiverActorType("ACTOR_HUB");
-                  setPhase("actor-select");
-                }}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-purple-700 text-white h-10 text-sm font-semibold hover:bg-purple-800 transition-colors"
-              >
-                <Layers className="h-4 w-4" />
-                Hand over all ({custody.shipments?.length})
-              </button>
-            )}
+          return (
+            <div className="space-y-4">
 
-            <div className="space-y-2">
-              {(custody.shipments ?? []).map((item) => (
-                <div key={item.shipmentId} className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 space-y-1.5">
-                  {item.waybillNumber && (
-                    <p className="text-[11px] font-mono font-semibold text-white">{item.waybillNumber}</p>
-                  )}
-                  <p className="text-xs text-white">{item.goodsDescription}</p>
-                  {item.pickupLocation && item.deliveryLocation && (
-                    <p className="text-[10px] text-stone-400 flex items-center gap-1">
-                      <MapPin className="h-2.5 w-2.5 shrink-0" />
-                      {item.pickupLocation} → {item.deliveryLocation}
+              {/* ── Run header card — identity + progress + value ─────────── */}
+              <div className="rounded-xl border border-white/[0.06] bg-gradient-to-br from-purple-500/[0.08] to-white/[0.02] p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-purple-500/15 flex items-center justify-center shrink-0">
+                    <Truck className="h-5 w-5 text-purple-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-white truncate">{custody.name}</p>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      {startedAt
+                        ? `Picked up ${startedAt.toLocaleString("en-NG", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                        : "Run in custody"}
                     </p>
-                  )}
-                  {item.recipientName && (
-                    <p className="text-[10px] text-stone-400">Recipient: {item.recipientName}</p>
-                  )}
-                  <button
-                    onClick={() => handleRunShipmentHandover(item)}
-                    className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-purple-700 text-white px-3 h-7 text-xs font-semibold hover:bg-purple-800 transition-colors"
-                  >
-                    <ChevronRight className="h-3 w-3" /> Hand over
-                  </button>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {(custody.shipments?.length ?? 0) === 0 && (
-              <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <CheckCircle2 className="h-10 w-10 text-green-600" />
-                <p className="text-sm font-semibold text-white">All shipments delivered</p>
-                <p className="text-xs text-stone-400">Your run is complete.</p>
+                {/* Progress bar */}
+                <div>
+                  <div className="flex items-center justify-between text-[11px] mb-1.5">
+                    <span className="text-stone-400 font-medium">
+                      {deliveredCount} of {totalCount} delivered
+                    </span>
+                    <span className="text-purple-300 font-semibold tabular-nums">{pctDelivered}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-500 to-purple-400 transition-all"
+                      style={{ width: `${pctDelivered}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Value summary */}
+                {progress && progress.totalValue > 0 && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-stone-500 font-medium">In your custody</p>
+                      <p className="text-sm font-semibold text-purple-200 tabular-nums">{formatNaira(progress.remainingValue * 100)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-stone-500 font-medium">Total run value</p>
+                      <p className="text-sm font-semibold text-stone-200 tabular-nums">{formatNaira(progress.totalValue * 100)}</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
+
+              {/* ── Bulk handover CTA (visible when 2+ remaining) ─────────── */}
+              {remainingCount > 1 && (
+                <button
+                  onClick={() => {
+                    setBulkMode(true);
+                    setActiveRunShipment(null);
+                    setReceiverActorType("ACTOR_HUB");
+                    setPhase("actor-select");
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/[0.16] hover:border-purple-500/40 h-11 text-sm font-semibold text-purple-200 transition-all"
+                >
+                  <Layers className="h-4 w-4" />
+                  Hand over all {remainingCount} at once
+                </button>
+              )}
+
+              {/* ── Shipment cards ────────────────────────────────────────── */}
+              {remainingShipments.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold text-stone-600 uppercase tracking-[0.12em] px-1">
+                    Still in your custody
+                  </p>
+                  {remainingShipments.map((item) => {
+                    const navUrl = item.deliveryLocation
+                      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.deliveryLocation)}`
+                      : null;
+                    return (
+                      <div
+                        key={item.shipmentId}
+                        className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            {item.waybillNumber && (
+                              <p className="text-[10px] font-mono font-semibold text-purple-300 mb-1">{item.waybillNumber}</p>
+                            )}
+                            <p className="text-sm font-semibold text-white">{item.goodsDescription || "Shipment"}</p>
+                            {item.pickupLocation && item.deliveryLocation && (
+                              <p className="text-[11px] text-stone-400 mt-1 flex items-center gap-1.5">
+                                <MapPin className="h-3 w-3 shrink-0 text-stone-600" />
+                                <span className="truncate">{item.pickupLocation} → {item.deliveryLocation}</span>
+                              </p>
+                            )}
+                          </div>
+                          {item.shipmentValue > 0 && (
+                            <div className="text-right shrink-0">
+                              <p className="text-[10px] text-stone-600 uppercase tracking-wide">Value</p>
+                              <p className="text-xs font-semibold text-stone-200 tabular-nums">{formatNaira(item.shipmentValue * 100)}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Recipient row with tap-to-call + navigate */}
+                        {(item.recipientName || item.recipientPhone || navUrl) && (
+                          <div className="flex items-center gap-2 pt-2 border-t border-white/[0.04]">
+                            <div className="min-w-0 flex-1">
+                              {item.recipientName && (
+                                <p className="text-[11px] text-stone-500 truncate">
+                                  <span className="text-stone-600">For: </span>
+                                  <span className="text-stone-300 font-medium">{item.recipientName}</span>
+                                </p>
+                              )}
+                            </div>
+                            {item.recipientPhone && (
+                              <a
+                                href={`tel:${item.recipientPhone}`}
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-white/[0.08] bg-white/[0.04] hover:bg-emerald-500/[0.1] hover:border-emerald-500/30 hover:text-emerald-400 text-stone-400 transition-colors"
+                                title={`Call ${item.recipientName || item.recipientPhone}`}
+                              >
+                                <Phone className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                            {navUrl && (
+                              <a
+                                href={navUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-white/[0.08] bg-white/[0.04] hover:bg-blue-500/[0.1] hover:border-blue-500/30 hover:text-blue-400 text-stone-400 transition-colors"
+                                title="Open in Maps"
+                              >
+                                <Navigation className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          onClick={() => handleRunShipmentHandover(item)}
+                          className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-b from-purple-500 to-purple-700 text-white h-9 text-xs font-semibold hover:from-purple-400 hover:to-purple-600 transition-all"
+                        >
+                          Hand over <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── Empty state — everything delivered ─────────────────────── */}
+              {remainingShipments.length === 0 && (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] py-10 text-center space-y-2">
+                  <div className="flex justify-center">
+                    <div className="h-12 w-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                      <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+                    </div>
+                  </div>
+                  <p className="text-sm font-semibold text-emerald-200">Run complete</p>
+                  <p className="text-xs text-emerald-400/70 max-w-xs mx-auto">
+                    Every shipment in this run has been handed over.
+                  </p>
+                </div>
+              )}
+
+              {/* ── Footer — switch session / sign out ─────────────────────── */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCustody(null);
+                  setCustodianToken(null);
+                  setError("");
+                  if (discoveredSessions.length > 0) {
+                    setPhase("session-picker");
+                  } else {
+                    setOtp("");
+                    setPhase("find-phone");
+                  }
+                }}
+                className="w-full inline-flex items-center justify-center gap-1.5 pt-2 text-[11px] text-stone-500 hover:text-stone-300 transition-colors"
+              >
+                <LogOut className="h-3 w-3" />
+                {discoveredSessions.length > 0 ? "Switch to another session" : "Sign out"}
+              </button>
+            </div>
+          );
+        })()}
 
         {/* Actor selection */}
         {phase === "actor-select" && (
