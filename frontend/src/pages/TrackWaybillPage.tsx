@@ -7,6 +7,7 @@ import {
 import { publicWaybillApi, waybillVerifyApi, ACTOR_LABELS, type ActorType } from "@/services/handover";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PhoneInput } from "@/components/PhoneInput";
+import { saveVerifyToken, getVerifyToken, clearVerifyToken } from "@/lib/waybillVerifyToken";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,28 @@ export default function TrackWaybillPage() {
 
   useEffect(() => {
     if (!id) return;
+
+    // If we have a saved verify token for this waybill, try the authenticated
+    // chain first so the page loads with full names already revealed. Falls
+    // back to the public chain (and clears the stale token) on any failure.
+    const saved = getVerifyToken(id);
+    if (saved) {
+      waybillVerifyApi
+        .getChain(id, saved.token)
+        .then((full) => {
+          setData(full);
+          setVerifiedRole(saved.role);
+          setVerifyPhase("done");
+        })
+        .catch(() => {
+          clearVerifyToken(id);
+          return publicWaybillApi.getChain(id).then(setData);
+        })
+        .catch(() => setError("Waybill not found or tracking unavailable."))
+        .finally(() => setLoading(false));
+      return;
+    }
+
     publicWaybillApi
       .getChain(id)
       .then(setData)
@@ -107,6 +130,12 @@ export default function TrackWaybillPage() {
       setData(fullData);
       setVerifiedRole(result.role);
       setVerifyPhase("done");
+      // Persist for 7 days so refreshes / return visits skip the OTP step.
+      saveVerifyToken(id, {
+        token:     result.token,
+        role:      result.role,
+        expiresAt: result.expiresAt,
+      });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setVerifyError(msg || "Incorrect code. Try again.");

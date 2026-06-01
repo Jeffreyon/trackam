@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Package, Github, Menu, X, Search, Loader2, FileText, LayoutDashboard } from "lucide-react";
+import { Package, Github, Menu, X, Search, Loader2, FileText, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { publicWaybillApi } from "@/services/handover";
 import { getAuthToken } from "@/lib/authToken";
 
 const NAV_LINKS = [
-  { href: "/waybill", label: "Generate Waybill", icon: FileText },
+  { href: "/waybill",  label: "Generate Waybill", icon: FileText },
+  { href: "/handover", label: "Handover",         icon: ShieldCheck },
 ];
 
 export function PublicNav() {
