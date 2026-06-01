@@ -43,4 +43,20 @@ async function findDefaultApiKey() {
   return r.rows[0]?.oli_api_key || null;
 }
 
-module.exports = { create, findByUserId, saveApiKey, findDefaultApiKey };
+/**
+ * Clear the stored API key and put the account back into a pending state.
+ * Used when an operator requests a key rotation — the actual new key is
+ * issued by an admin on the network side and emailed to the operator.
+ */
+async function clearApiKey(userId) {
+  const r = await query(
+    `UPDATE oli_accounts
+        SET oli_api_key = NULL, oli_status = 'pending', updated_at = NOW()
+      WHERE user_id = $1
+      RETURNING *`,
+    [userId]
+  );
+  return r.rows[0] || null;
+}
+
+module.exports = { create, findByUserId, saveApiKey, findDefaultApiKey, clearApiKey };

@@ -29,4 +29,15 @@ router.post("/api-key", localAuth, asyncHandler(async (req, res) => {
   res.json({ status: "active", hasApiKey: true });
 }));
 
+// POST /api/oli-account/api-key/rotate — clear the stored key and re-enter pending state.
+// The operator will receive a new key by email from the network admin after rotation
+// is processed on the OLI Switch side.
+router.post("/api-key/rotate", localAuth, asyncHandler(async (req, res) => {
+  const account = await repo.clearApiKey(req.user.uid);
+  if (!account) {
+    return res.status(404).json({ message: "OLI account not found" });
+  }
+  res.json({ status: "pending", hasApiKey: false });
+}));
+
 module.exports = router;

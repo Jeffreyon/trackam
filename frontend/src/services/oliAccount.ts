@@ -13,4 +13,7 @@ export const oliAccountApi = {
 
   saveApiKey: (apiKey: string): Promise<OliAccount> =>
     apiClient.post<OliAccount>("/api/oli-account/api-key", { apiKey }).then((r) => r.data),
+
+  rotateApiKey: (): Promise<OliAccount> =>
+    apiClient.post<OliAccount>("/api/oli-account/api-key/rotate").then((r) => r.data),
 };
