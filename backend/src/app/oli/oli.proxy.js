@@ -15,30 +15,54 @@ const oliAccountRepo = require("./oli.account.repository");
 const OLI_SWITCH_URL    = process.env.OLI_SWITCH_URL || "http://localhost:5000";
 const OLI_API_KEY_ENV   = process.env.OLI_API_KEY    || "";
 
-// Per-user key cache — avoids a DB hit on every proxied request
-const _keyCache = new Map(); // userId → { key, expiresAt }
+// Key resolution cache — single org key shared by all users
+const _keyCache = new Map(); // cacheKey → { key, expiresAt }
 const KEY_CACHE_TTL_MS = 60_000;
 
+/**
+ * Resolve the OLI API key for this request.
+ *
+ * Priority order:
+ *   1. Org-level key (org_oli_config) — commercial deployments
+ *   2. Env var OLI_API_KEY — simple single-operator deployments
+ *   3. Per-user key (oli_accounts) — open-source / legacy
+ *   4. First active key in oli_accounts — unauthenticated fallback
+ */
 async function _resolveApiKey(userId) {
-  // Authenticated user → look up their key
+  // 1. Org-level key — shared by all users on this instance
+  const orgCached = _keyCache.get("__org__");
+  if (orgCached && orgCached.expiresAt > Date.now()) {
+    if (orgCached.key) return orgCached.key;
+  } else {
+    try {
+      const orgKey = await oliAccountRepo.getOrgApiKey();
+      _keyCache.set("__org__", { key: orgKey, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
+      if (orgKey) return orgKey;
+    } catch {
+      // Fall through
+    }
+  }
+
+  // 2. Env var
+  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
+
+  // 3. Per-user key (legacy / open-source)
   if (userId) {
     const cached = _keyCache.get(userId);
     if (cached && cached.expiresAt > Date.now()) return cached.key;
     try {
       const account = await oliAccountRepo.findByUserId(userId);
-      const key = account?.oli_api_key || OLI_API_KEY_ENV;
+      const key = account?.oli_api_key || "";
       _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
-      return key;
+      if (key) return key;
     } catch {
-      return OLI_API_KEY_ENV;
+      // Fall through
     }
   }
 
-  // Unauthenticated (public pages) → env var, then default operator key
-  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
-
-  const cached = _keyCache.get("__default__");
-  if (cached && cached.expiresAt > Date.now()) return cached.key;
+  // 4. First active key in oli_accounts (unauthenticated fallback)
+  const defaultCached = _keyCache.get("__default__");
+  if (defaultCached && defaultCached.expiresAt > Date.now()) return defaultCached.key;
   try {
     const key = await oliAccountRepo.findDefaultApiKey();
     if (key) _keyCache.set("__default__", { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });

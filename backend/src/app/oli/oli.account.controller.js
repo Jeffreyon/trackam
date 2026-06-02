@@ -2,10 +2,58 @@ const express = require("express");
 const router = express.Router();
 const asyncHandler = require("../../core/middlewares/asyncHandler");
 const localAuth = require("../../core/middlewares/localAuth");
+const { attachAuthz, requireAdmin } = require("../../core/middlewares/authz");
 const repo = require("./oli.account.repository");
+
+// ── Org-level OLI config (super_admin / admin) ─────────────────────────────
+
+// GET /api/oli-account/org — return org-level OLI provisioning status
+router.get("/org", localAuth, attachAuthz, requireAdmin, asyncHandler(async (req, res) => {
+  const config = await repo.getOrgConfig();
+  if (!config) {
+    return res.json({ status: "not_provisioned", hasApiKey: false });
+  }
+  res.json({
+    status: config.oli_status,
+    hasApiKey: Boolean(config.oli_api_key),
+    operatorId: config.oli_operator_id || null,
+  });
+}));
+
+// POST /api/oli-account/org/api-key — founder enters the org-level API key
+router.post("/org/api-key", localAuth, attachAuthz, requireAdmin, asyncHandler(async (req, res) => {
+  const { apiKey } = req.body;
+  if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length < 10) {
+    return res.status(400).json({ message: "A valid API key is required" });
+  }
+  await repo.saveOrgApiKey(apiKey.trim());
+  res.json({ status: "active", hasApiKey: true });
+}));
+
+// POST /api/oli-account/org/api-key/rotate — clear org key (re-enter pending)
+router.post("/org/api-key/rotate", localAuth, attachAuthz, requireAdmin, asyncHandler(async (req, res) => {
+  const result = await repo.clearOrgApiKey();
+  if (!result) {
+    return res.status(404).json({ message: "Org OLI config not found" });
+  }
+  res.json({ status: "pending", hasApiKey: false });
+}));
+
+// ── Per-user OLI account (legacy / open-source) ────────────────────────────
 
 // GET /api/oli-account — return current OLI provisioning status for the logged-in user
 router.get("/", localAuth, asyncHandler(async (req, res) => {
+  // In commercial mode, return org-level status instead of per-user
+  const orgConfig = await repo.getOrgConfig();
+  if (orgConfig?.oli_api_key) {
+    return res.json({
+      status: orgConfig.oli_status,
+      hasApiKey: true,
+      orgManaged: true, // signals to the frontend that this is org-level
+    });
+  }
+
+  // Fall back to per-user account
   const account = await repo.findByUserId(req.user.uid);
   if (!account) {
     return res.json({ status: "not_provisioned" });
@@ -13,11 +61,21 @@ router.get("/", localAuth, asyncHandler(async (req, res) => {
   res.json({
     status: account.oli_status,
     hasApiKey: Boolean(account.oli_api_key),
+    orgManaged: false,
   });
 }));
 
 // POST /api/oli-account/api-key — operator enters the API key they received by email
+// In commercial mode this is blocked — only the super_admin sets the org key
 router.post("/api-key", localAuth, asyncHandler(async (req, res) => {
+  const orgConfig = await repo.getOrgConfig();
+  if (orgConfig?.oli_api_key) {
+    return res.status(403).json({
+      message: "OLI API key is managed at the org level. Contact your admin.",
+      orgManaged: true,
+    });
+  }
+
   const { apiKey } = req.body;
   if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length < 10) {
     return res.status(400).json({ message: "A valid API key is required" });
@@ -29,10 +87,16 @@ router.post("/api-key", localAuth, asyncHandler(async (req, res) => {
   res.json({ status: "active", hasApiKey: true });
 }));
 
-// POST /api/oli-account/api-key/rotate — clear the stored key and re-enter pending state.
-// The operator will receive a new key by email from the network admin after rotation
-// is processed on the OLI Switch side.
+// POST /api/oli-account/api-key/rotate — clear the stored key
 router.post("/api-key/rotate", localAuth, asyncHandler(async (req, res) => {
+  const orgConfig = await repo.getOrgConfig();
+  if (orgConfig?.oli_api_key) {
+    return res.status(403).json({
+      message: "OLI API key is managed at the org level. Contact your admin.",
+      orgManaged: true,
+    });
+  }
+
   const account = await repo.clearApiKey(req.user.uid);
   if (!account) {
     return res.status(404).json({ message: "OLI account not found" });

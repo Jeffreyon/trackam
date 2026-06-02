@@ -6,10 +6,10 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function ensureAdminRole(roles) {
+function ensureOwnerRole(roles) {
   const nextRoles = Array.isArray(roles) ? [...roles] : [];
-  if (!nextRoles.includes("admin")) {
-    nextRoles.push("admin");
+  if (!nextRoles.includes("owner")) {
+    nextRoles.push("owner");
   }
   return nextRoles;
 }
@@ -42,7 +42,7 @@ async function seedBootstrapAdmin(pool, options = {}) {
   const existingUser = existingResult.rows[0];
 
   if (existingUser) {
-    const roles = ensureAdminRole(existingUser.roles);
+    const roles = ensureOwnerRole(existingUser.roles);
     await pool.query(
       `UPDATE users
        SET display_name = $2,
@@ -64,7 +64,7 @@ async function seedBootstrapAdmin(pool, options = {}) {
   }
 
   const id = crypto.randomUUID();
-  const roles = ["admin"];
+  const roles = ["owner"];
   await pool.query(
     `INSERT INTO users (id, email, display_name, roles, email_verified, created_at, updated_at, password_hash)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,

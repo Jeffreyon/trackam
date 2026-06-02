@@ -14,9 +14,20 @@ const OLI_SWITCH_URL = process.env.OLI_SWITCH_URL || "";
 const TRACKAM_FRONTEND_URL = process.env.FRONTEND_URL || "";
 const TRACKAM_BACKEND_URL  = process.env.BACKEND_URL  || "";
 
-// Fire-and-forget — never blocks or fails the Trackam signup
+// Fire-and-forget — never blocks or fails the Trackam signup.
+// In commercial mode (org_oli_config has an active key) we skip per-user
+// provisioning — the founder already registered the org on OLI Switch.
 async function _provisionOliAccount(userId, { email, displayName }) {
   if (!OLI_SWITCH_URL) return;
+
+  // Skip if this instance is org-managed (commercial model)
+  try {
+    const orgKey = await oliAccountRepo.getOrgApiKey();
+    if (orgKey) return; // org already registered — no per-user provisioning
+  } catch {
+    // org_oli_config table may not exist yet (pre-migration) — fall through
+  }
+
   try {
     const webhookUrl = TRACKAM_BACKEND_URL
       ? `${TRACKAM_BACKEND_URL.replace(/\/$/, "")}/api/oli/webhook`
@@ -75,11 +86,29 @@ async function signup({ email, password, profile = {} }) {
   const uid = uuidv4();
   const passwordHash = await bcrypt.hash(password, 12);
 
+  // Auto-promote the first user on a fresh instance to owner.
+  // This is the commercial onboarding path: founder deploys Trackam, signs up,
+  // and immediately gets full control. Also future-proofs multi-tenant where
+  // each new org's first signup becomes the org owner.
+  // Excludes synthetic system users (id wrapped in double underscores, e.g. '__org__').
+  let roles = profile.roles || [];
+  try {
+    const { query: dbQuery } = require("../../core/db/postgres");
+    const countResult = await dbQuery(
+      "SELECT COUNT(*)::int AS cnt FROM users WHERE id NOT LIKE '\\_\\_%\\_\\_' ESCAPE '\\'"
+    );
+    if (Number(countResult.rows[0]?.cnt) === 0) {
+      roles = ["owner"];
+    }
+  } catch {
+    // Non-fatal — worst case the first user doesn't auto-promote
+  }
+
   const userPayload = {
     email,
     displayName: profile.displayName,
     photoURL: profile.photoURL,
-    roles: profile.roles || [],
+    roles,
     emailVerified: false,
     preferences: profile.preferences || {},
     passwordHash,

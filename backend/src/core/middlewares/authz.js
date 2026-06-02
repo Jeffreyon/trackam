@@ -27,7 +27,7 @@ async function attachAuthz(req, res, next) {
     });
 
     const permissions = Array.from(permissionsSet);
-    const isAdmin = roleIds.includes("admin") || permissions.includes("*");
+    const isAdmin = roleIds.includes("admin") || roleIds.includes("owner") || permissions.includes("*");
 
     if (!userDoc) {
       warn("authz_user_missing", { uid });
@@ -85,8 +85,26 @@ function requireSelfOrAdmin(paramName = "id") {
   };
 }
 
+function requireOwner(req, res, next) {
+  const authz = req.authz;
+
+  if (!authz) {
+    return res.status(500).json({ message: "Authorization context missing" });
+  }
+
+  const roleIds = Array.isArray(authz.user?.roles) ? authz.user.roles : [];
+  const isOwner = roleIds.includes("owner");
+
+  if (!isOwner) {
+    return res.status(403).json({ message: "Owner privileges required" });
+  }
+
+  return next();
+}
+
 module.exports = {
   attachAuthz,
   requireAdmin,
   requireSelfOrAdmin,
+  requireOwner,
 };

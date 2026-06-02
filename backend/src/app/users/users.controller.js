@@ -45,4 +45,39 @@ router.put(
   })
 );
 
+// PATCH /:id/roles — update a user's roles (admin-only)
+router.patch(
+  "/:id/roles",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { roles } = req.body;
+    if (!Array.isArray(roles)) {
+      return res.status(400).json({ message: "roles must be an array" });
+    }
+    const user = await UsersService.getUser(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const updated = await UsersService.upsertUser(req.params.id, { ...user, roles });
+    res.json(updated);
+  })
+);
+
+// PATCH /:id/disable — toggle a user's disabled state (admin-only)
+router.patch(
+  "/:id/disable",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { disabled } = req.body;
+    const user = await UsersService.getUser(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    // Store disabled state in preferences
+    const prefs = { ...(user.preferences || {}), disabled: Boolean(disabled) };
+    const updated = await UsersService.upsertUser(req.params.id, { ...user, preferences: prefs });
+    res.json(updated);
+  })
+);
+
 module.exports = router;

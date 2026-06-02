@@ -1,7 +1,7 @@
 import type { ShipmentStatus, RiskScore } from "@/services/logistics";
 import { cn } from "@/lib/utils";
 
-const STATUS_STYLES: Record<ShipmentStatus, string> = {
+export const STATUS_STYLES: Record<ShipmentStatus, string> = {
   pending:     "bg-stone-500/[0.12] text-stone-400 border-stone-500/20",
   in_custody:  "bg-amber-500/[0.1] text-amber-300 border-amber-500/20",
   in_transit:  "bg-blue-500/[0.1] text-blue-400 border-blue-500/20",
@@ -12,7 +12,7 @@ const STATUS_STYLES: Record<ShipmentStatus, string> = {
   disputed:    "bg-rose-500/[0.1] text-rose-400 border-rose-500/20",
 };
 
-const STATUS_LABELS: Record<ShipmentStatus, string> = {
+export const STATUS_LABELS: Record<ShipmentStatus, string> = {
   pending:     "Pending",
   in_custody:  "In Custody",
   in_transit:  "In Transit",

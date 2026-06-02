@@ -81,6 +81,7 @@ async function list(limit = 50) {
             created_at,
             updated_at
      FROM users
+     WHERE id NOT LIKE '\\_\\_%\\_\\_' ESCAPE '\\'
      ORDER BY created_at DESC
      LIMIT $1`,
     [limit]

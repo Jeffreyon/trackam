@@ -27,29 +27,41 @@ const router = express.Router();
 const OLI_SWITCH_URL  = process.env.OLI_SWITCH_URL || "http://localhost:5000";
 const OLI_API_KEY_ENV = process.env.OLI_API_KEY    || "";
 
-// Per-user key cache — mirrors the proxy's cache to avoid DB hits
-const _keyCache = new Map(); // userId → { key, expiresAt }
+// Key resolution cache — org key shared by all users (mirrors oli.proxy.js logic)
+const _keyCache = new Map();
 const KEY_CACHE_TTL_MS = 60_000;
 
 async function _resolveApiKey(userId) {
+  // 1. Org-level key (commercial)
+  const orgCached = _keyCache.get("__org__");
+  if (orgCached && orgCached.expiresAt > Date.now()) {
+    if (orgCached.key) return orgCached.key;
+  } else {
+    try {
+      const orgKey = await oliAccountRepo.getOrgApiKey();
+      _keyCache.set("__org__", { key: orgKey, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
+      if (orgKey) return orgKey;
+    } catch { /* fall through */ }
+  }
+
+  // 2. Env var
+  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
+
+  // 3. Per-user key (legacy / open-source)
   if (userId) {
     const cached = _keyCache.get(userId);
     if (cached && cached.expiresAt > Date.now()) return cached.key;
     try {
       const account = await oliAccountRepo.findByUserId(userId);
-      const key = account?.oli_api_key || OLI_API_KEY_ENV;
+      const key = account?.oli_api_key || "";
       _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
-      return key;
-    } catch {
-      return OLI_API_KEY_ENV;
-    }
+      if (key) return key;
+    } catch { /* fall through */ }
   }
 
-  // Unauthenticated (public pages) → env var, then default operator key
-  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
-
-  const cached = _keyCache.get("__default__");
-  if (cached && cached.expiresAt > Date.now()) return cached.key;
+  // 4. First active key fallback
+  const defaultCached = _keyCache.get("__default__");
+  if (defaultCached && defaultCached.expiresAt > Date.now()) return defaultCached.key;
   try {
     const key = await oliAccountRepo.findDefaultApiKey();
     if (key) _keyCache.set("__default__", { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
@@ -146,6 +158,29 @@ async function upsertLiteWaybill(w) {
  * Upsert a local shipments record for a waybill leg.
  * Uses the OLI-generated shipmentId so frontend URLs stay consistent.
  */
+/**
+ * Mirror a shipment that was joined via OLI's join-leg endpoint into the local DB.
+ * Used by both /:waybillId/join-leg and /confirm-and-join — both return
+ * `{ shipmentId, waybillId, waybill: {...full PII...} }`, and both want the
+ * receiving operator's local shipment to start at `in_custody` (they physically
+ * hold the goods but haven't dispatched again).
+ * Falls back to the public PII-stripped lookup if the inline waybill is missing.
+ */
+async function mirrorJoinedShipment({ shipmentId, userId, waybillId, inlineWaybill }) {
+  let waybill = inlineWaybill;
+  if (!waybill?.id) {
+    const { status: wStatus, data: fetched } = await oliGet(`/api/waybill/${waybillId}`, userId);
+    if (wStatus === 200 && fetched?.id) waybill = fetched;
+  }
+  if (waybill?.id) {
+    await upsertLiteWaybill(waybill);
+    await upsertLocalShipment({
+      shipmentId, userId, waybillId: waybill.id, waybill,
+      initialStatus: "in_custody",
+    });
+  }
+}
+
 async function upsertLocalShipment({ shipmentId, userId, waybillId, waybill, initialStatus = "pending" }) {
   await query(
     `INSERT INTO shipments
@@ -274,25 +309,7 @@ router.post("/:waybillId/join-leg", localAuthOptional, asyncHandler(async (req, 
 
   if (shipmentId && userId) {
     try {
-      // Prefer the full waybill payload that the join-leg endpoint now returns
-      // inline — it includes sender/receiver phones since the joining operator
-      // has earned the right to communicate with the parties. Falls back to the
-      // public lookup (PII-stripped) only if the new field isn't present.
-      let waybill = oliData.waybill;
-      if (!waybill?.id) {
-        const { status: wStatus, data: fetched } = await oliGet(`/api/waybill/${waybillId}`, userId);
-        if (wStatus === 200 && fetched?.id) waybill = fetched;
-      }
-      if (waybill?.id) {
-        await upsertLiteWaybill(waybill);
-        // The operator just received goods from another operator's driver —
-        // they physically hold the package now. Mark as in_custody so the
-        // status reflects ownership without implying dispatch or hand-off.
-        await upsertLocalShipment({
-          shipmentId, userId, waybillId: waybill.id, waybill,
-          initialStatus: "in_custody",
-        });
-      }
+      await mirrorJoinedShipment({ shipmentId, userId, waybillId, inlineWaybill: oliData.waybill });
     } catch (dbErr) {
       console.error("[waybill.controller] Failed to mirror joined shipment locally:", dbErr.message);
     }
@@ -400,20 +417,7 @@ router.post("/confirm-and-join", localAuthOptional, asyncHandler(async (req, res
   const { shipmentId } = joinData;
   if (shipmentId) {
     try {
-      // Prefer the inline waybill from the join-leg response (PII intact);
-      // fall back to the public lookup only if the field isn't there.
-      let waybill = joinData.waybill;
-      if (!waybill?.id) {
-        const { status: wStatus, data: fetched } = await oliGet(`/api/waybill/${waybillId}`, userId);
-        if (wStatus === 200 && fetched?.id) waybill = fetched;
-      }
-      if (waybill?.id) {
-        await upsertLiteWaybill(waybill);
-        await upsertLocalShipment({
-          shipmentId, userId, waybillId: waybill.id, waybill,
-          initialStatus: "in_custody",
-        });
-      }
+      await mirrorJoinedShipment({ shipmentId, userId, waybillId, inlineWaybill: joinData.waybill });
     } catch (dbErr) {
       console.error("[waybill.controller] Failed to mirror joined shipment locally:", dbErr.message);
     }
