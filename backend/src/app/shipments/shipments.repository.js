@@ -55,6 +55,31 @@ function mapRow(row) {
   };
 }
 
+// Shared SELECT + JOIN clauses so list() and getById() return identical column shapes
+// (so mapRow stays honest — partial waybill/run objects across endpoints would be a bug).
+const SHIPMENT_SELECT_SQL = `
+  SELECT s.*,
+         r.name           AS rider_name,
+         dr.id            AS run_id,
+         dr.name          AS run_name,
+         dr.status        AS run_status,
+         dr.total_cost    AS run_total_cost,
+         (SELECT COUNT(*)::int FROM shipments WHERE run_id = dr.id) AS run_leg_count,
+         lw.waybill_number,
+         lw.sender_name,
+         lw.sender_phone,
+         lw.receiver_name,
+         lw.receiver_phone,
+         lw.goods_description AS lite_goods_description,
+         lw.pickup_location   AS lite_pickup_location,
+         lw.delivery_location AS lite_delivery_location,
+         lw.created_at        AS waybill_created_at
+  FROM shipments s
+  LEFT JOIN riders r         ON r.id = s.rider_id
+  LEFT JOIN dispatch_runs dr ON dr.id = s.run_id
+  LEFT JOIN lite_waybills lw ON lw.id = s.waybill_id
+`;
+
 async function list(userId, { status, riderId, limit = 50, offset = 0 } = {}) {
   const conditions = ["s.user_id = $1"];
   const values = [userId];
@@ -65,22 +90,7 @@ async function list(userId, { status, riderId, limit = 50, offset = 0 } = {}) {
 
   values.push(limit, offset);
   const result = await query(
-    `SELECT s.*,
-            r.name           AS rider_name,
-            dr.id            AS run_id,
-            dr.name          AS run_name,
-            dr.status        AS run_status,
-            dr.total_cost    AS run_total_cost,
-            lw.waybill_number,
-            lw.sender_name,
-            lw.sender_phone,
-            lw.receiver_name,
-            lw.receiver_phone,
-            lw.created_at    AS waybill_created_at
-     FROM shipments s
-     LEFT JOIN riders r         ON r.id = s.rider_id
-     LEFT JOIN dispatch_runs dr ON dr.id = s.run_id
-     LEFT JOIN lite_waybills lw ON lw.id = s.waybill_id
+    `${SHIPMENT_SELECT_SQL}
      WHERE ${conditions.join(" AND ")}
      ORDER BY s.created_at DESC
      LIMIT $${i++} OFFSET $${i++}`,
@@ -91,27 +101,7 @@ async function list(userId, { status, riderId, limit = 50, offset = 0 } = {}) {
 
 async function getById(id, userId) {
   const result = await query(
-    `SELECT s.*,
-            r.name           AS rider_name,
-            dr.id            AS run_id,
-            dr.name          AS run_name,
-            dr.status        AS run_status,
-            dr.total_cost    AS run_total_cost,
-            (SELECT COUNT(*)::int FROM shipments WHERE run_id = dr.id) AS run_leg_count,
-            lw.waybill_number,
-            lw.sender_name,
-            lw.sender_phone,
-            lw.receiver_name,
-            lw.receiver_phone,
-            lw.goods_description AS lite_goods_description,
-            lw.pickup_location   AS lite_pickup_location,
-            lw.delivery_location AS lite_delivery_location,
-            lw.created_at        AS waybill_created_at
-     FROM shipments s
-     LEFT JOIN riders r            ON r.id = s.rider_id
-     LEFT JOIN dispatch_runs dr    ON dr.id = s.run_id
-     LEFT JOIN lite_waybills lw    ON lw.id = s.waybill_id
-     WHERE s.id = $1 AND s.user_id = $2`,
+    `${SHIPMENT_SELECT_SQL} WHERE s.id = $1 AND s.user_id = $2`,
     [id, userId]
   );
   return mapRow(result.rows[0]);

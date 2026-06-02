@@ -146,6 +146,29 @@ async function upsertLiteWaybill(w) {
  * Upsert a local shipments record for a waybill leg.
  * Uses the OLI-generated shipmentId so frontend URLs stay consistent.
  */
+/**
+ * Mirror a shipment that was joined via OLI's join-leg endpoint into the local DB.
+ * Used by both /:waybillId/join-leg and /confirm-and-join — both return
+ * `{ shipmentId, waybillId, waybill: {...full PII...} }`, and both want the
+ * receiving operator's local shipment to start at `in_custody` (they physically
+ * hold the goods but haven't dispatched again).
+ * Falls back to the public PII-stripped lookup if the inline waybill is missing.
+ */
+async function mirrorJoinedShipment({ shipmentId, userId, waybillId, inlineWaybill }) {
+  let waybill = inlineWaybill;
+  if (!waybill?.id) {
+    const { status: wStatus, data: fetched } = await oliGet(`/api/waybill/${waybillId}`, userId);
+    if (wStatus === 200 && fetched?.id) waybill = fetched;
+  }
+  if (waybill?.id) {
+    await upsertLiteWaybill(waybill);
+    await upsertLocalShipment({
+      shipmentId, userId, waybillId: waybill.id, waybill,
+      initialStatus: "in_custody",
+    });
+  }
+}
+
 async function upsertLocalShipment({ shipmentId, userId, waybillId, waybill, initialStatus = "pending" }) {
   await query(
     `INSERT INTO shipments
@@ -274,25 +297,7 @@ router.post("/:waybillId/join-leg", localAuthOptional, asyncHandler(async (req, 
 
   if (shipmentId && userId) {
     try {
-      // Prefer the full waybill payload that the join-leg endpoint now returns
-      // inline — it includes sender/receiver phones since the joining operator
-      // has earned the right to communicate with the parties. Falls back to the
-      // public lookup (PII-stripped) only if the new field isn't present.
-      let waybill = oliData.waybill;
-      if (!waybill?.id) {
-        const { status: wStatus, data: fetched } = await oliGet(`/api/waybill/${waybillId}`, userId);
-        if (wStatus === 200 && fetched?.id) waybill = fetched;
-      }
-      if (waybill?.id) {
-        await upsertLiteWaybill(waybill);
-        // The operator just received goods from another operator's driver —
-        // they physically hold the package now. Mark as in_custody so the
-        // status reflects ownership without implying dispatch or hand-off.
-        await upsertLocalShipment({
-          shipmentId, userId, waybillId: waybill.id, waybill,
-          initialStatus: "in_custody",
-        });
-      }
+      await mirrorJoinedShipment({ shipmentId, userId, waybillId, inlineWaybill: oliData.waybill });
     } catch (dbErr) {
       console.error("[waybill.controller] Failed to mirror joined shipment locally:", dbErr.message);
     }
@@ -400,20 +405,7 @@ router.post("/confirm-and-join", localAuthOptional, asyncHandler(async (req, res
   const { shipmentId } = joinData;
   if (shipmentId) {
     try {
-      // Prefer the inline waybill from the join-leg response (PII intact);
-      // fall back to the public lookup only if the field isn't there.
-      let waybill = joinData.waybill;
-      if (!waybill?.id) {
-        const { status: wStatus, data: fetched } = await oliGet(`/api/waybill/${waybillId}`, userId);
-        if (wStatus === 200 && fetched?.id) waybill = fetched;
-      }
-      if (waybill?.id) {
-        await upsertLiteWaybill(waybill);
-        await upsertLocalShipment({
-          shipmentId, userId, waybillId: waybill.id, waybill,
-          initialStatus: "in_custody",
-        });
-      }
+      await mirrorJoinedShipment({ shipmentId, userId, waybillId, inlineWaybill: joinData.waybill });
     } catch (dbErr) {
       console.error("[waybill.controller] Failed to mirror joined shipment locally:", dbErr.message);
     }
