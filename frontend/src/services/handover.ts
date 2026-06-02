@@ -80,9 +80,22 @@ function publicBase() {
   return cfg?.VITE_API_URL || import.meta.env.VITE_API_URL || "";
 }
 
+export interface DeliveryOtpRequested {
+  sent: boolean;
+  channel: "sms" | "email" | "none";
+  maskedPhone: string;
+  expiresInSec: number;
+}
+
 export const publicHandoverApi = {
   getTokenInfo: (token: string) =>
     axios.get<TokenInfo>(`${publicBase()}/api/handover/token/${token}`).then((r) => r.data),
+
+  // Sends a 6-digit code to the receiver's phone as recorded on the waybill.
+  // Only valid for ACTOR_RECEIVER tokens (final-mile delivery).
+  requestDeliveryOtp: (token: string) =>
+    axios.post<DeliveryOtpRequested>(`${publicBase()}/api/handover/request-delivery-otp`, { token })
+      .then((r) => r.data),
 
   confirm: (body: {
     token: string;
@@ -91,6 +104,7 @@ export const publicHandoverApi = {
     receiverActorType: ActorType;
     latitude?: number;
     longitude?: number;
+    otp?: string;
   }) =>
     axios.post<HandoverConfirmation>(`${publicBase()}/api/handover/confirm`, body).then((r) => r.data),
 };
