@@ -20,6 +20,7 @@ import {
   X,
   ArrowLeftRight,
 } from "lucide-react";
+import WalletWidget from "@/components/layout/WalletWidget";
 import type { Profile } from "@/types/profile";
 
 type NavItem = {
@@ -349,6 +350,8 @@ export default function AdminDashboardLayout() {
               <p className="hidden sm:block text-xs text-stone-500">{page.description}</p>
             )}
           </div>
+
+          <WalletWidget />
         </header>
 
         <main className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6">

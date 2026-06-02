@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Wallet } from "lucide-react";
 import { walletApi, type WalletData } from "@/services/handover";
 import { formatNairaRaw } from "@/lib/format";
+import { useProfileStore } from "@/hooks/useProfile";
 import { WalletModal } from "./WalletModal";
 
 /** Dispatch this event from anywhere to make the wallet re-fetch. */
@@ -17,6 +18,12 @@ export default function WalletWidget() {
   const [refreshing, setRefreshing] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // Only owners can open the wallet modal (which has top-up controls).
+  // Non-owners see the balance as a read-only chip so they know they
+  // can do handovers — they just can't deposit themselves.
+  const roles = useProfileStore((s) => (s.profile?.roles as string[] | undefined) ?? []);
+  const isOwner = roles.includes("owner") || roles.includes("admin");
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -59,6 +66,22 @@ export default function WalletWidget() {
       >
         <Wallet className="h-3.5 w-3.5 text-stone-500 shrink-0" />
         <span className="text-xs font-medium text-stone-500 tabular-nums">&mdash;</span>
+      </div>
+    );
+  }
+
+  // Non-owners: read-only chip (still shows balance so they know handovers
+  // can proceed, but no click target and no modal).
+  if (!isOwner) {
+    return (
+      <div
+        className="flex items-center gap-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] px-2.5 h-8"
+        title="Organisation wallet balance — contact your admin to top up"
+      >
+        <Wallet className="h-3.5 w-3.5 text-orange-400/70 shrink-0" />
+        <span className="text-xs font-medium text-stone-300 tabular-nums">
+          {formatNairaRaw(wallet.balance)}
+        </span>
       </div>
     );
   }

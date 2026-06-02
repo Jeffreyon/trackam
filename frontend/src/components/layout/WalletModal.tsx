@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Wallet, RefreshCw, X, ArrowRight, Receipt, Loader2, AlertCircle, Plus } from "lucide-react";
 import { walletApi, type WalletData } from "@/services/handover";
 import { formatNaira, formatNairaRaw } from "@/lib/format";
@@ -18,6 +18,9 @@ export function WalletModal({ wallet, onClose, onRefresh, refreshing }: Props) {
   const [amount, setAmount] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const location = useLocation();
+  const isAdminContext = location.pathname.startsWith("/admin");
+  const transactionsPath = isAdminContext ? "/admin/dashboard/wallet" : "/dashboard/wallet/transactions";
 
   // Close on Esc
   useEffect(() => {
@@ -160,7 +163,7 @@ export function WalletModal({ wallet, onClose, onRefresh, refreshing }: Props) {
           </button>
 
           <Link
-            to="/dashboard/wallet/transactions"
+            to={transactionsPath}
             onClick={onClose}
             className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] h-10 text-xs font-medium text-stone-300 hover:text-white transition-all"
           >

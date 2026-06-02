@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { Activity, Search } from "lucide-react";
 import { fetchEvents, type EventItem } from "@/services/admin.api";
 
+// events.created_at is BIGINT (millis since epoch). pg returns BIGINT as
+// strings to avoid precision loss, so we coerce to Number before constructing
+// a Date — otherwise `new Date("1748880000000")` returns Invalid Date.
+function formatEventTime(createdAt: number | string | null | undefined): string {
+  if (createdAt == null || createdAt === "") return "Unknown";
+  const n = typeof createdAt === "string" ? Number(createdAt) : createdAt;
+  if (!Number.isFinite(n)) return "Unknown";
+  const d = new Date(n);
+  return Number.isNaN(d.getTime()) ? "Unknown" : d.toLocaleString();
+}
+
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +83,7 @@ export default function AdminEventsPage() {
                   <span className="text-xs font-medium text-stone-200 truncate font-mono">{evt.type}</span>
                 </div>
                 <span className="text-[11px] text-stone-500 tabular-nums">
-                  {evt.createdAt ? new Date(evt.createdAt).toLocaleString() : "Unknown"}
+                  {formatEventTime(evt.createdAt)}
                 </span>
               </li>
             ))}

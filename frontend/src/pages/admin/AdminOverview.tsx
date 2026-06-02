@@ -216,7 +216,7 @@ export default function AdminOverview() {
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-stone-300 truncate">{evt.type}</div>
                       <div className="text-[10px] text-stone-600">
-                        {evt.createdAt ? new Date(evt.createdAt).toLocaleString() : "unknown"}
+                        {formatEventTime(evt.createdAt)}
                       </div>
                     </div>
                   </div>
@@ -292,6 +292,16 @@ function StatusRow({
 
 function EmptyRow({ text }: { text: string }) {
   return <p className="px-5 py-6 text-xs text-stone-600 text-center">{text}</p>;
+}
+
+// events.created_at is BIGINT (millis); pg returns BIGINT as strings, so we
+// must Number() before passing to Date() — otherwise we get Invalid Date.
+function formatEventTime(createdAt: number | string | null | undefined): string {
+  if (createdAt == null || createdAt === "") return "unknown";
+  const n = typeof createdAt === "string" ? Number(createdAt) : createdAt;
+  if (!Number.isFinite(n)) return "unknown";
+  const d = new Date(n);
+  return Number.isNaN(d.getTime()) ? "unknown" : d.toLocaleString();
 }
 
 function OverviewSkeleton() {
