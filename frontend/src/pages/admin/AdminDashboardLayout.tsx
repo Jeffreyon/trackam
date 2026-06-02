@@ -12,6 +12,9 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Settings,
+  Plug,
+  Wallet,
 } from "lucide-react";
 
 export default function AdminDashboardLayout() {
@@ -92,6 +95,31 @@ export default function AdminDashboardLayout() {
             to="/admin/dashboard/roles"
             label="Roles"
             icon={<ShieldCheck className="h-3.5 w-3.5" />}
+            collapsed={sidebarCollapsed}
+          />
+
+          {!sidebarCollapsed && (
+            <div className="pt-4 pb-1 px-3">
+              <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">Organisation</span>
+            </div>
+          )}
+
+          <AdminNavLink
+            to="/admin/dashboard/settings"
+            label="Settings"
+            icon={<Settings className="h-3.5 w-3.5" />}
+            collapsed={sidebarCollapsed}
+          />
+          <AdminNavLink
+            to="/admin/dashboard/oli"
+            label="Network"
+            icon={<Plug className="h-3.5 w-3.5" />}
+            collapsed={sidebarCollapsed}
+          />
+          <AdminNavLink
+            to="/admin/dashboard/wallet"
+            label="Wallet"
+            icon={<Wallet className="h-3.5 w-3.5" />}
             collapsed={sidebarCollapsed}
           />
         </nav>

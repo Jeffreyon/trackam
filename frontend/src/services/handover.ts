@@ -356,8 +356,21 @@ export interface TopupInit {
   reference: string;
 }
 
+export interface WalletTransaction {
+  id: string;
+  operator_id: string;
+  type: "credit" | "debit";
+  amount: number;
+  balance_after: number;
+  description: string | null;
+  reference: string | null;
+  created_at: string;
+}
+
 export const walletApi = {
   get: () => apiClient.get<{ wallet: WalletData }>("/api/wallet").then((r) => r.data.wallet),
+  transactions: () =>
+    apiClient.get<WalletTransaction[]>("/api/wallet/transactions").then((r) => r.data),
   topup: (amountNgn: number) =>
     apiClient.post<TopupInit>("/api/wallet/topup", { amount: amountNgn }).then((r) => r.data),
 };

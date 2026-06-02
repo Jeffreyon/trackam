@@ -22,6 +22,9 @@ import AdminOverview from "@/pages/admin/AdminOverview";
 import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminEventsPage from "@/pages/admin/AdminEventsPage";
 import AdminRolesPage from "@/pages/admin/AdminRolesPage";
+import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
+import AdminOliPage from "@/pages/admin/AdminOliPage";
+import AdminWalletPage from "@/pages/admin/AdminWalletPage";
 import ShipmentsPage from "@/pages/logistics/ShipmentsPage";
 import ShipmentDetailPage from "@/pages/logistics/ShipmentDetailPage";
 import WaybillsPage from "@/pages/logistics/WaybillsPage";
@@ -81,6 +84,9 @@ const router = createBrowserRouter([
       { path: "users", element: <AdminUsersPage /> },
       { path: "events", element: <AdminEventsPage /> },
       { path: "roles", element: <AdminRolesPage /> },
+      { path: "settings", element: <AdminSettingsPage /> },
+      { path: "oli", element: <AdminOliPage /> },
+      { path: "wallet", element: <AdminWalletPage /> },
     ],
   },
   { path: "*", element: <ErrorPage /> },
