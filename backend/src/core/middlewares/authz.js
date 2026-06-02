@@ -85,8 +85,26 @@ function requireSelfOrAdmin(paramName = "id") {
   };
 }
 
+function requireSuperAdmin(req, res, next) {
+  const authz = req.authz;
+
+  if (!authz) {
+    return res.status(500).json({ message: "Authorization context missing" });
+  }
+
+  const roleIds = Array.isArray(authz.user?.roles) ? authz.user.roles : [];
+  const isSuperAdmin = roleIds.includes("super_admin") || authz.isAdmin;
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({ message: "Super admin privileges required" });
+  }
+
+  return next();
+}
+
 module.exports = {
   attachAuthz,
   requireAdmin,
   requireSelfOrAdmin,
+  requireSuperAdmin,
 };
