@@ -11,6 +11,9 @@ function ensureAdminRole(roles) {
   if (!nextRoles.includes("admin")) {
     nextRoles.push("admin");
   }
+  if (!nextRoles.includes("super_admin")) {
+    nextRoles.push("super_admin");
+  }
   return nextRoles;
 }
 
@@ -64,7 +67,7 @@ async function seedBootstrapAdmin(pool, options = {}) {
   }
 
   const id = crypto.randomUUID();
-  const roles = ["admin"];
+  const roles = ["admin", "super_admin"];
   await pool.query(
     `INSERT INTO users (id, email, display_name, roles, email_verified, created_at, updated_at, password_hash)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,

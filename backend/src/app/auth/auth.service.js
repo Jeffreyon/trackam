@@ -86,11 +86,26 @@ async function signup({ email, password, profile = {} }) {
   const uid = uuidv4();
   const passwordHash = await bcrypt.hash(password, 12);
 
+  // Auto-promote the first user on a fresh instance to super_admin + admin.
+  // This is the commercial onboarding path: founder deploys Trackam, signs up,
+  // and immediately gets full control. Also future-proofs multi-tenant where
+  // each new org's first signup becomes the org admin.
+  let roles = profile.roles || [];
+  try {
+    const { query: dbQuery } = require("../../core/db/postgres");
+    const countResult = await dbQuery("SELECT COUNT(*)::int AS cnt FROM users");
+    if (Number(countResult.rows[0]?.cnt) === 0) {
+      roles = ["admin", "super_admin"];
+    }
+  } catch {
+    // Non-fatal — worst case the first user doesn't auto-promote
+  }
+
   const userPayload = {
     email,
     displayName: profile.displayName,
     photoURL: profile.photoURL,
-    roles: profile.roles || [],
+    roles,
     emailVerified: false,
     preferences: profile.preferences || {},
     passwordHash,
