@@ -906,26 +906,29 @@ export default function StaffHandoverPage() {
               </div>
             )}
             <div className="grid grid-cols-1 gap-2">
-              {STAFF_ACTOR_OPTIONS.map(({ type, label, description }) => (
-                <button
-                  key={`${type}-${label}`}
-                  onClick={() => setReceiverActorType(type)}
-                  className={[
-                    "rounded-md border px-4 py-3 text-left transition-colors",
-                    receiverActorType === type
-                      ? "border-orange-400 bg-orange-500/10"
-                      : "border-white/[0.06] hover:border-orange-400/30",
-                  ].join(" ")}
-                >
-                  <p className={[
-                    "text-sm font-medium",
-                    receiverActorType === type ? "text-orange-300" : "text-stone-400",
-                  ].join(" ")}>
-                    {label}
-                  </p>
-                  <p className="text-[11px] text-stone-500 mt-0.5">{description}</p>
-                </button>
-              ))}
+              {STAFF_ACTOR_OPTIONS
+                // Final delivery is per-shipment only — hide it in bulk mode.
+                .filter(({ type }) => !(bulkMode && type === "ACTOR_RECEIVER"))
+                .map(({ type, label, description }) => (
+                  <button
+                    key={`${type}-${label}`}
+                    onClick={() => setReceiverActorType(type)}
+                    className={[
+                      "rounded-md border px-4 py-3 text-left transition-colors",
+                      receiverActorType === type
+                        ? "border-orange-400 bg-orange-500/10"
+                        : "border-white/[0.06] hover:border-orange-400/30",
+                    ].join(" ")}
+                  >
+                    <p className={[
+                      "text-sm font-medium",
+                      receiverActorType === type ? "text-orange-300" : "text-stone-400",
+                    ].join(" ")}>
+                      {label}
+                    </p>
+                    <p className="text-[11px] text-stone-500 mt-0.5">{description}</p>
+                  </button>
+                ))}
             </div>
             {qrError && (
               <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">

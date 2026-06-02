@@ -929,20 +929,23 @@ export default function DriverHandoverPage() {
               </div>
             )}
           <div className="grid grid-cols-1 gap-2">
-              {HANDOVER_ACTOR_OPTIONS.map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setReceiverActorType(type)}
-                  className={[
-                    "rounded-md border px-4 py-3 text-sm font-medium text-left transition-colors",
-                    receiverActorType === type
-                      ? "border-purple-400 bg-purple-500/10 text-purple-300"
-                      : "border-white/[0.06] text-stone-400 hover:border-purple-400/30",
-                  ].join(" ")}
-                >
-                  {ACTOR_LABELS[type]}
-                </button>
-              ))}
+              {HANDOVER_ACTOR_OPTIONS
+                // Final delivery is per-shipment only — hide it in bulk mode.
+                .filter((type) => !(bulkMode && type === "ACTOR_RECEIVER"))
+                .map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setReceiverActorType(type)}
+                    className={[
+                      "rounded-md border px-4 py-3 text-sm font-medium text-left transition-colors",
+                      receiverActorType === type
+                        ? "border-purple-400 bg-purple-500/10 text-purple-300"
+                        : "border-white/[0.06] text-stone-400 hover:border-purple-400/30",
+                    ].join(" ")}
+                  >
+                    {ACTOR_LABELS[type]}
+                  </button>
+                ))}
             </div>
             {qrError && (
               <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
