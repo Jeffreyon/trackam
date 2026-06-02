@@ -1,8 +1,20 @@
 import { apiClient } from "@/lib/apiClient";
 import type { UserProfile } from "./dashboard.api";
+import type { GovtIdType, VerificationState } from "./logistics";
 
 export type AdminUser = UserProfile & {
   photoURL?: string | null;
+
+  // Staff profile fields — populated on /api/users responses.
+  phone?: string | null;
+  phoneVerifiedAt?: string | null;
+  govtIdType?: GovtIdType | null;
+  govtIdNumber?: string | null;
+  govtIdPhoto?: string | null;  // only present when includePhoto=1
+  govtIdVerifiedAt?: string | null;
+  govtIdVerifiedBy?: string | null;
+  govtIdRejectionReason?: string | null;
+  verificationState?: VerificationState;
 };
 
 export type RoleItem = {
@@ -45,6 +57,38 @@ export async function fetchEvents(type?: string): Promise<EventItem[]> {
 export async function updateUserRoles(userId: string, roles: string[]): Promise<AdminUser> {
   const { data } = await apiClient.patch(`/api/users/${userId}/roles`, { roles });
   return data as AdminUser;
+}
+
+// Staff verification queue + actions
+export async function fetchStaffPendingVerification(): Promise<AdminUser[]> {
+  const { data } = await apiClient.get("/api/users/pending-verification");
+  return data as AdminUser[];
+}
+
+export async function fetchUserWithPhoto(userId: string): Promise<AdminUser> {
+  const { data } = await apiClient.get(`/api/users/${userId}`, {
+    params: { includePhoto: 1 },
+  });
+  return data as AdminUser;
+}
+
+export async function verifyStaff(userId: string): Promise<AdminUser> {
+  const { data } = await apiClient.post(`/api/users/${userId}/verify`);
+  return data as AdminUser;
+}
+
+export async function rejectStaff(userId: string, rejectionReason: string): Promise<AdminUser> {
+  const { data } = await apiClient.post(`/api/users/${userId}/reject`, { rejectionReason });
+  return data as AdminUser;
+}
+
+// Self / admin — update a user's staff profile (phone + ID)
+export async function updateStaffProfile(
+  userId: string,
+  data: { phone?: string; govtIdType?: GovtIdType | null; govtIdNumber?: string | null; govtIdPhoto?: string | null }
+): Promise<AdminUser> {
+  const { data: out } = await apiClient.patch(`/api/users/${userId}/staff-profile`, data);
+  return out as AdminUser;
 }
 
 export async function toggleUserDisabled(userId: string, disabled: boolean): Promise<AdminUser> {

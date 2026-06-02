@@ -116,6 +116,20 @@ async function signup({ email, password, profile = {} }) {
 
   const user = await UsersService.upsertUser(uid, userPayload);
 
+  // First user on a fresh instance is the founder. They don't need someone
+  // else to verify their ID — auto-stamp govt_id_verified_at so they can
+  // act as a custodian immediately. (They still need to upload an ID type
+  // and number eventually for the proof events to bind a real identity,
+  // but they won't be blocked from operating.)
+  if (roles.includes("owner")) {
+    try {
+      await UsersRepository.autoVerify(user.id);
+    } catch {
+      // Non-fatal — worst case the founder lands in their own verification
+      // queue and self-approves.
+    }
+  }
+
   const idToken = signPayload({
     sub: user.id,
     email: user.email,

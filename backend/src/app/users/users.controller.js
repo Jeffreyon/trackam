@@ -22,12 +22,57 @@ router.get(
   })
 );
 
-// Get a single user by id (admin or self)
+// ── Verification queue (admin-only) ───────────────────────────────────────
+// MUST come before /:id so 'pending-verification' isn't matched as an id.
+
+router.get(
+  "/pending-verification",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const users = await UsersService.listPendingVerification();
+    res.json(users);
+  })
+);
+
+router.post(
+  "/:id/verify",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const user = await UsersService.verifyStaff(req.params.id, req.user.uid);
+    res.json(user);
+  })
+);
+
+router.post(
+  "/:id/reject",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const user = await UsersService.rejectStaff(
+      req.params.id, req.user.uid, req.body?.rejectionReason
+    );
+    res.json(user);
+  })
+);
+
+// ── Staff profile (self) — upload phone + ID for verification ─────────────
+
+router.patch(
+  "/:id/staff-profile",
+  requireSelfOrAdmin("id"),
+  asyncHandler(async (req, res) => {
+    const user = await UsersService.updateStaffProfile(req.params.id, req.body || {});
+    res.json(user);
+  })
+);
+
+// Get a single user by id (admin or self).
+// includePhoto=1 returns the base64 ID photo for the admin review modal.
 router.get(
   "/:id",
   requireSelfOrAdmin("id"),
   asyncHandler(async (req, res) => {
-    const user = await UsersService.getUser(req.params.id);
+    const includePhoto = req.query.includePhoto === "1" || req.query.includePhoto === "true";
+    const user = await UsersService.getUser(req.params.id, { includePhoto });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }

@@ -65,9 +65,12 @@ async function seedBootstrapAdmin(pool, options = {}) {
 
   const id = crypto.randomUUID();
   const roles = ["owner"];
+  // govt_id_verified_at is stamped so the founder isn't blocked from
+  // operating — they can upload their ID type/number later without
+  // ending up in their own verification queue.
   await pool.query(
-    `INSERT INTO users (id, email, display_name, roles, email_verified, created_at, updated_at, password_hash)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    `INSERT INTO users (id, email, display_name, roles, email_verified, created_at, updated_at, password_hash, govt_id_verified_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
     [id, email, displayName, roles, true, now, now, passwordHash]
   );
 
