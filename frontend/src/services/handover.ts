@@ -84,6 +84,11 @@ export interface DeliveryOtpRequested {
   sent: boolean;
   channel: "sms" | "email" | "none";
   maskedPhone: string;
+  // Receiver name + goods description come from the canonical waybill record
+  // so authenticated drivers/staff can display "Delivering to: X" inline
+  // without an extra waybill fetch. Caller passes receiverName back at confirm.
+  receiverName: string | null;
+  goodsDescription: string | null;
   expiresInSec: number;
 }
 

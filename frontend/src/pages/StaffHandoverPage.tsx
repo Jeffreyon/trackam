@@ -3,10 +3,11 @@ import { useSearchParams } from "react-router-dom";
 import {
   Loader2, ShieldCheck, MapPin, ArrowRight, CheckCircle2,
   Package, Phone, Hash, ChevronRight, Layers, Building2, Users, Navigation, LogOut,
+  AlertCircle, Send,
 } from "lucide-react";
 import { formatNaira } from "@/lib/format";
 import { QRCodeSVG } from "qrcode.react";
-import { custodianApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type RunShipmentItem, type CustodySessionSummary } from "@/services/handover";
+import { custodianApi, publicHandoverApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type RunShipmentItem, type CustodySessionSummary } from "@/services/handover";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PhoneInput } from "@/components/PhoneInput";
 import { savePhoneToken, getPhoneToken, clearPhoneToken } from "@/lib/custodianPhoneToken";
@@ -22,6 +23,7 @@ type Phase =
   | "run-custody"
   | "actor-select"
   | "qr"
+  | "delivery-otp"   // final-mile delivery — OTP to receiver phone on waybill
   | "success"
   | "error";
 
@@ -82,6 +84,18 @@ export default function StaffHandoverPage() {
   const [submitting, setSubmitting] = useState(false);
   const [qrError, setQrError] = useState("");
   const [bulkMode, setBulkMode] = useState(false);
+
+  // Final-mile delivery OTP — staff member enters the code the recipient
+  // reads aloud. No QR scan involved.
+  const [otpRequesting, setOtpRequesting] = useState(false);
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [otpMaskedPhone, setOtpMaskedPhone] = useState("");
+  const [otpChannel, setOtpChannel] = useState<"sms" | "email" | "none">("none");
+  const [otpReceiverName, setOtpReceiverName] = useState<string | null>(null);
+  const [otpGoodsDescription, setOtpGoodsDescription] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [otpSubmitting, setOtpSubmitting] = useState(false);
 
   const scanUrl = handoverToken
     ? `${window.location.origin}/scan?token=${handoverToken}`
@@ -228,7 +242,18 @@ export default function StaffHandoverPage() {
       setExpiresAt(result.expiresAt);
       const secs = Math.floor((new Date(result.expiresAt).getTime() - Date.now()) / 1000);
       setSecondsLeft(secs);
-      setPhase("qr");
+
+      // Final-mile delivery: skip QR, send OTP to the receiver phone on
+      // the waybill and let the staff member enter the code.
+      if (receiverActorType === "ACTOR_RECEIVER" && !bulkMode) {
+        setOtpRequested(false);
+        setOtpCode("");
+        setOtpError("");
+        setPhase("delivery-otp");
+        await sendDeliveryOtp(result.token);
+      } else {
+        setPhase("qr");
+      }
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
@@ -236,6 +261,56 @@ export default function StaffHandoverPage() {
       setQrError(msg);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function sendDeliveryOtp(token: string) {
+    setOtpRequesting(true);
+    setOtpError("");
+    try {
+      const result = await publicHandoverApi.requestDeliveryOtp(token);
+      if (!result.sent) {
+        setOtpError("Could not send the code. Check the phone number on the waybill is correct.");
+        return;
+      }
+      setOtpMaskedPhone(result.maskedPhone);
+      setOtpChannel(result.channel);
+      setOtpReceiverName(result.receiverName);
+      setOtpGoodsDescription(result.goodsDescription);
+      setOtpRequested(true);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || "Could not send the code. Try again.";
+      setOtpError(msg);
+    } finally {
+      setOtpRequesting(false);
+    }
+  }
+
+  async function handleConfirmDelivery(e: React.FormEvent) {
+    e.preventDefault();
+    if (!handoverToken) return;
+    if (otpCode.trim().length < 4) {
+      setOtpError("Enter the 6-digit code the customer received.");
+      return;
+    }
+    setOtpSubmitting(true);
+    setOtpError("");
+    try {
+      await publicHandoverApi.confirm({
+        token: handoverToken,
+        receiverName: otpReceiverName || "Recipient",
+        receiverActorType: "ACTOR_RECEIVER",
+        otp: otpCode.trim(),
+      });
+      setConfirmed(true);
+      setPhase("success");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || "Could not confirm delivery. Check the code and try again.";
+      setOtpError(msg);
+    } finally {
+      setOtpSubmitting(false);
     }
   }
 
@@ -867,6 +942,102 @@ export default function StaffHandoverPage() {
               Generate handover QR
             </button>
           </div>
+        )}
+
+        {/* ── Final-mile delivery OTP — staff enters the code recipient reads */}
+        {phase === "delivery-otp" && (
+          <form onSubmit={handleConfirmDelivery} className="space-y-5">
+            <div>
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="h-9 w-9 rounded-lg bg-purple-500/15 flex items-center justify-center">
+                  <Package className="h-4.5 w-4.5 text-purple-400" />
+                </div>
+                <div>
+                  <h1 className="text-base font-semibold text-white">Delivery confirmation</h1>
+                  <p className="text-xs text-stone-400 mt-0.5">
+                    Ask the recipient for the code we just sent them.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 p-4 space-y-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-purple-300/70 font-semibold">Delivering to</p>
+                <p className="text-sm font-semibold text-white mt-0.5">
+                  {otpReceiverName || "Recipient on waybill"}
+                </p>
+              </div>
+              {otpGoodsDescription && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-purple-300/70 font-semibold">Goods</p>
+                  <p className="text-xs text-purple-100 mt-0.5">{otpGoodsDescription}</p>
+                </div>
+              )}
+            </div>
+
+            {otpRequesting && !otpRequested ? (
+              <div className="rounded-lg border border-orange-500/20 bg-orange-500/[0.06] p-4 flex items-center gap-2.5">
+                <Loader2 className="h-4 w-4 text-orange-400 animate-spin shrink-0" />
+                <p className="text-xs text-orange-200">Sending code to the recipient…</p>
+              </div>
+            ) : otpRequested ? (
+              <div className="rounded-lg border border-green-500/20 bg-green-500/[0.06] p-3">
+                <p className="text-[11px] text-green-300 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  Code sent via {otpChannel === "sms" ? "SMS" : otpChannel === "email" ? "email" : "—"} to{" "}
+                  <span className="font-mono">{otpMaskedPhone}</span>
+                </p>
+              </div>
+            ) : null}
+
+            <div>
+              <label className="text-xs font-medium text-white block mb-1.5">6-digit code <span className="text-red-500">*</span></label>
+              <input
+                required
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                maxLength={6}
+                autoFocus={otpRequested}
+                placeholder="000000"
+                className="w-full rounded-md border border-white/[0.08] bg-white/[0.06] px-3 h-12 text-lg font-mono tracking-widest text-center text-white placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+              />
+              <button
+                type="button"
+                onClick={() => handoverToken && sendDeliveryOtp(handoverToken)}
+                disabled={otpRequesting}
+                className="mt-1.5 text-[11px] text-orange-400 hover:text-orange-300 underline-offset-2 hover:underline disabled:opacity-60 inline-flex items-center gap-1"
+              >
+                {otpRequesting ? <><Loader2 className="h-3 w-3 animate-spin" /> Sending…</> : <><Send className="h-3 w-3" /> Resend code</>}
+              </button>
+            </div>
+
+            {otpError && (
+              <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5">
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-red-300">{otpError}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={otpSubmitting || !otpRequested || otpCode.trim().length < 4}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-purple-700 text-white h-11 text-sm font-semibold transition-colors hover:bg-purple-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {otpSubmitting
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Confirming delivery…</>
+                : <><ShieldCheck className="h-4 w-4" /> Confirm delivery</>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setPhase("actor-select"); setHandoverToken(null); }}
+              className="w-full text-xs text-stone-500 underline underline-offset-2 hover:text-stone-300"
+            >
+              Cancel and pick a different actor
+            </button>
+          </form>
         )}
 
         {/* ── QR code ──────────────────────────────────────────────────── */}
