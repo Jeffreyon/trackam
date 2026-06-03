@@ -42,7 +42,9 @@ export default function Login() {
         throw new Error("Authenticated session was not established.");
       }
 
-      const redirectTo = searchParams.get("redirect") || "/dashboard";
+      const isAdmin = await authClient.checkIsAdmin();
+      const defaultDest = isAdmin ? "/admin/dashboard" : "/dashboard";
+      const redirectTo = searchParams.get("redirect") || defaultDest;
       navigate(redirectTo, { replace: true });
     } catch (err) {
       console.error(err);
