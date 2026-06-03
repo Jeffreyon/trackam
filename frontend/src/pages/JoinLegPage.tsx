@@ -19,7 +19,7 @@ import { useProfileStore } from "@/hooks/useProfile";
 import { getAuthToken } from "@/lib/authToken";
 import { PublicNav } from "@/components/layout/PublicNav";
 
-type Phase = "loading" | "preview" | "joining" | "success" | "error";
+type Phase = "loading" | "preview" | "joining" | "success" | "error" | "needs-verification";
 
 export default function JoinLegPage() {
   const [params] = useSearchParams();
@@ -31,6 +31,7 @@ export default function JoinLegPage() {
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
   const [error, setError] = useState("");
   const [joinedShipmentId, setJoinedShipmentId] = useState<string | null>(null);
+  const [verificationState, setVerificationState] = useState<string | null>(null);
 
   const isSignedIn = Boolean(getAuthToken());
 
@@ -68,9 +69,17 @@ export default function JoinLegPage() {
       setJoinedShipmentId(result.shipmentId);
       setPhase("success");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      const resp = (err as { response?: { status?: number; data?: { message?: string; verificationState?: string } } })?.response;
+      const msg = resp?.data?.message
         || (err as Error)?.message
         || "Failed to join custody leg.";
+      // 403 with verificationState means the staff user isn't approved yet.
+      if (resp?.status === 403 && resp?.data?.verificationState) {
+        setVerificationState(resp.data.verificationState);
+        setError(msg);
+        setPhase("needs-verification");
+        return;
+      }
       setError(msg);
       setPhase("error");
     }
@@ -155,6 +164,39 @@ export default function JoinLegPage() {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 px-4 h-10 text-sm font-semibold text-white shadow-sm shadow-orange-500/20 transition-all"
               >
                 View shipment <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {phase === "needs-verification" && (
+            <div className="flex flex-col items-center text-center gap-4 py-8">
+              <div className="h-14 w-14 rounded-full bg-amber-500/15 flex items-center justify-center">
+                <ShieldCheck className="h-7 w-7 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-white">Your ID isn't verified yet</p>
+                <p className="text-sm text-stone-400 mt-1 max-w-xs">{error}</p>
+                {verificationState === "missing" && (
+                  <p className="text-xs text-stone-500 mt-2 max-w-xs">
+                    Upload your government ID from the Account page, then ask your admin to approve it.
+                  </p>
+                )}
+                {verificationState === "pending" && (
+                  <p className="text-xs text-stone-500 mt-2 max-w-xs">
+                    Your ID is in the queue. Ping your admin to review it.
+                  </p>
+                )}
+                {verificationState === "rejected" && (
+                  <p className="text-xs text-stone-500 mt-2 max-w-xs">
+                    Your last submission was rejected. Re-upload from your Account page.
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => navigate("/dashboard/account")}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 px-4 h-10 text-sm font-semibold text-white shadow-sm shadow-orange-500/20 transition-all"
+              >
+                Go to Account
               </button>
             </div>
           )}

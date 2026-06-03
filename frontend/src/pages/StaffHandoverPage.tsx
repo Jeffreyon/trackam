@@ -97,8 +97,19 @@ export default function StaffHandoverPage() {
   const [otpError, setOtpError] = useState("");
   const [otpSubmitting, setOtpSubmitting] = useState(false);
 
+  // Route the QR target by receiver type — same model as DriverHandoverPage.
+  // ACTOR_HUB → /join (staff dashboard scanner)
+  // ACTOR_COURIER → /handover/driver?join=… (rider's authenticated flow)
+  // ACTOR_RECEIVER never reaches here (delivery-otp branches first)
+  // Bulk → /scan (per-shipment OTP handled there)
   const scanUrl = handoverToken
-    ? `${window.location.origin}/scan?token=${handoverToken}`
+    ? bulkMode
+      ? `${window.location.origin}/scan?token=${handoverToken}`
+      : receiverActorType === "ACTOR_HUB"
+        ? `${window.location.origin}/join?token=${handoverToken}`
+        : receiverActorType === "ACTOR_COURIER"
+          ? `${window.location.origin}/handover/driver?join=${handoverToken}`
+          : `${window.location.origin}/scan?token=${handoverToken}`
     : null;
 
   useEffect(() => {

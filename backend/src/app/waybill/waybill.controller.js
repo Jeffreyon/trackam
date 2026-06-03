@@ -376,16 +376,36 @@ router.post("/confirm-and-join", localAuthOptional, asyncHandler(async (req, res
   const userId = req.user?.uid;
   if (!userId) return res.status(401).json({ message: "Authentication required" });
 
-  const { token, receiverName } = req.body;
+  const { token } = req.body;
   if (!token) return res.status(400).json({ message: "token is required" });
+
+  // Identity flows from the authenticated user's verified staff profile —
+  // not from a form. Anyone joining a leg as ACTOR_HUB has to have an
+  // approved ID on file (the founder verified them on /admin/dashboard/
+  // identity-verifications). Falls back to display_name + email if the
+  // instance hasn't run migration 0022 yet.
+  const UsersService = require("../users/users.service");
+  const staff = await UsersService.getUser(userId);
+  if (!staff) {
+    return res.status(404).json({ message: "Your user record is missing — contact your admin." });
+  }
+  if (staff.verificationState && staff.verificationState !== "verified") {
+    return res.status(403).json({
+      message: "Your ID hasn't been verified yet. Ask your admin to approve you on the Identity Verifications page before joining a custody leg.",
+      verificationState: staff.verificationState,
+    });
+  }
+
+  const receiverName  = staff.displayName || staff.email || "Operator";
+  const receiverPhone = staff.phone || null;
 
   // Step 1: confirm the handover via OLI switch (public endpoint, no operator auth needed)
   let confirmData;
   try {
     const { status, data } = await oliPost("/api/handover/confirm", null, {
       token,
-      receiverName: receiverName || "Operator",
-      receiverGovtId: "",
+      receiverName,
+      receiverPhone: receiverPhone || undefined,
       receiverActorType: "ACTOR_HUB",
     });
     if (status !== 200 && status !== 201) {

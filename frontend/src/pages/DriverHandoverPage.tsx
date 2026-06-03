@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { formatNaira } from "@/lib/format";
 import { QRCodeSVG } from "qrcode.react";
-import { custodianApi, publicHandoverApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type RunShipmentItem, type CustodySessionSummary } from "@/services/handover";
+import { custodianApi, publicHandoverApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type RunShipmentItem, type CustodySessionSummary, type TokenInfo, type HandoverConfirmation } from "@/services/handover";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PhoneInput } from "@/components/PhoneInput";
 import { savePhoneToken, getPhoneToken, clearPhoneToken } from "@/lib/custodianPhoneToken";
@@ -32,9 +32,19 @@ const HANDOVER_ACTOR_OPTIONS: ActorType[] = ["ACTOR_COURIER", "ACTOR_HUB", "ACTO
 export default function DriverHandoverPage() {
   const [params] = useSearchParams();
   const sessionId = params.get("ref") || "";
+  // ?join=<handoverToken> — a different driver's handover QR pointing here.
+  // We surface a banner once the rider is authenticated and confirm via
+  // /api/handover/confirm-as-rider (no form, identity from network_riders).
+  const joinToken = params.get("join") || "";
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState("");
+
+  // Pending receiving-rider join state
+  const [joinTokenInfo, setJoinTokenInfo] = useState<TokenInfo | null>(null);
+  const [joinSubmitting, setJoinSubmitting] = useState(false);
+  const [joinError, setJoinError] = useState("");
+  const [joinSuccess, setJoinSuccess] = useState<HandoverConfirmation | null>(null);
 
   // OTP flow
   const [phone, setPhone] = useState("");
@@ -99,11 +109,65 @@ export default function DriverHandoverPage() {
   const [otpError, setOtpError] = useState("");
   const [otpSubmitting, setOtpSubmitting] = useState(false);
 
+  // Route the QR target based on who's receiving.
+  // - ACTOR_HUB (staff at next operator) → /join, scanner is in their dashboard
+  // - ACTOR_COURIER (next rider) → /handover/driver?join=… so they can phone-OTP
+  //   into their own custody session and the system derives identity from
+  //   their pre-verified rider record. No form, no manual ID entry.
+  // - ACTOR_RECEIVER never reaches here (we route to delivery-otp first).
+  // - Bulk handovers still use the public /scan flow.
   const scanUrl = handoverToken
-    ? (receiverActorType === "ACTOR_HUB" && !bulkMode)
-      ? `${window.location.origin}/join?token=${handoverToken}`
-      : `${window.location.origin}/scan?token=${handoverToken}`
+    ? bulkMode
+      ? `${window.location.origin}/scan?token=${handoverToken}`
+      : receiverActorType === "ACTOR_HUB"
+        ? `${window.location.origin}/join?token=${handoverToken}`
+        : receiverActorType === "ACTOR_COURIER"
+          ? `${window.location.origin}/handover/driver?join=${handoverToken}`
+          : `${window.location.origin}/scan?token=${handoverToken}`
     : null;
+
+  // Independent effect: fetch the join token's preview info as soon as the
+  // page mounts so we can show the rider what shipment they're about to take.
+  // The actual confirm happens once the rider authenticates (has a phone token).
+  useEffect(() => {
+    if (!joinToken) return;
+    publicHandoverApi.getTokenInfo(joinToken)
+      .then((info) => setJoinTokenInfo(info))
+      .catch((err) => {
+        const msg = err?.response?.data?.message || "This join link is invalid or expired.";
+        setJoinError(msg);
+      });
+  }, [joinToken]);
+
+  async function handleConfirmAsRider() {
+    if (!joinToken) return;
+    const phoneTok = getPhoneToken();
+    if (!phoneTok) {
+      setJoinError("Sign in with your phone first to join this leg.");
+      return;
+    }
+    setJoinSubmitting(true);
+    setJoinError("");
+    try {
+      const result = await publicHandoverApi.confirmAsRider({ token: joinToken, phoneToken: phoneTok });
+      setJoinSuccess(result);
+      // After a successful join, refresh the custody picker so the new
+      // shipment shows up in the rider's active sessions.
+      if (custodianToken) {
+        await refreshRunCustody().catch(() => {});
+      } else {
+        // Force a re-resolve from the saved phone token.
+        const sessionsResp = await custodianApi.sessionsByPhoneToken(phoneTok).catch(() => null);
+        if (sessionsResp?.sessions) setDiscoveredSessions(sessionsResp.sessions);
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || "Could not join the leg. Make sure your operator has verified your ID.";
+      setJoinError(msg);
+    } finally {
+      setJoinSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     // Legacy SMS-link path (?ref=<sessionId>) — always asks for phone+OTP for
@@ -359,6 +423,72 @@ export default function DriverHandoverPage() {
     <div className="min-h-screen bg-[#060d18] text-white flex flex-col">
       <PublicNav />
       <main className="flex-1 flex flex-col px-4 pt-24 pb-12 max-w-md mx-auto w-full">
+
+        {/* Pending join-leg banner — visible when /handover/driver?join=<token>
+            is the URL. After the rider authenticates, the Accept button
+            confirms the handover with their session-bound identity. */}
+        {joinToken && !joinSuccess && (
+          <div className="mb-5 rounded-xl border border-purple-500/25 bg-purple-500/[0.08] p-4 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <Package className="h-4 w-4 text-purple-300 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-purple-200">A handover is waiting for you</p>
+                {joinTokenInfo ? (
+                  <>
+                    <p className="text-[11px] text-purple-300/80 mt-0.5 truncate">
+                      {joinTokenInfo.shipment.goodsDescription}
+                    </p>
+                    <p className="text-[10px] text-purple-300/60 flex items-center gap-1 mt-0.5">
+                      <MapPin className="h-2.5 w-2.5 shrink-0" />
+                      {joinTokenInfo.shipment.pickupLocation} → {joinTokenInfo.shipment.deliveryLocation}
+                    </p>
+                    {joinTokenInfo.giverName && (
+                      <p className="text-[10px] text-purple-300/60 mt-0.5">
+                        From: <span className="text-purple-200">{joinTokenInfo.giverName}</span>
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[11px] text-purple-300/70 mt-0.5">Loading details…</p>
+                )}
+              </div>
+            </div>
+            {joinError && (
+              <p className="text-[11px] text-red-300 flex items-start gap-1.5">
+                <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />{joinError}
+              </p>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleConfirmAsRider}
+                disabled={joinSubmitting || !joinTokenInfo || !getPhoneToken()}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-purple-700 hover:bg-purple-800 text-white h-10 text-xs font-semibold disabled:opacity-60 transition-colors"
+                title={!getPhoneToken() ? "Sign in with your phone first" : undefined}
+              >
+                {joinSubmitting
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Joining…</>
+                  : <><ShieldCheck className="h-3.5 w-3.5" /> Accept custody</>}
+              </button>
+            </div>
+            {!getPhoneToken() && (
+              <p className="text-[10px] text-purple-300/60 text-center">
+                Sign in with your phone below to enable accept.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Confirmation toast after accept */}
+        {joinSuccess && (
+          <div className="mb-5 rounded-xl border border-green-500/25 bg-green-500/[0.08] p-4 flex items-center gap-2.5">
+            <CheckCircle2 className="h-4 w-4 text-green-300 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-green-200">Custody received</p>
+              <p className="text-[10px] text-green-300/60 truncate font-mono">PoH: {joinSuccess.proofHash?.slice(0, 16)}…</p>
+            </div>
+          </div>
+        )}
 
         {/* Find-my-custody — phase 1: enter phone */}
         {phase === "find-phone" && (
