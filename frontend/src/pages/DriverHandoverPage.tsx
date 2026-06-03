@@ -46,6 +46,18 @@ export default function DriverHandoverPage() {
   const [joinError, setJoinError] = useState("");
   const [joinSuccess, setJoinSuccess] = useState<HandoverConfirmation | null>(null);
 
+  // GPS — auto-capture once when the page mounts so it's available for
+  // any handover the rider does on this page (join, delivery OTP, etc.).
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { /* user denied or timeout — proceed without coords */ },
+      { timeout: 8000, enableHighAccuracy: false }
+    );
+  }, []);
+
   // OTP flow
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -149,7 +161,12 @@ export default function DriverHandoverPage() {
     setJoinSubmitting(true);
     setJoinError("");
     try {
-      const result = await publicHandoverApi.confirmAsRider({ token: joinToken, phoneToken: phoneTok });
+      const result = await publicHandoverApi.confirmAsRider({
+        token: joinToken,
+        phoneToken: phoneTok,
+        latitude:  gpsCoords?.lat,
+        longitude: gpsCoords?.lng,
+      });
       setJoinSuccess(result);
       // After a successful join, refresh the custody picker so the new
       // shipment shows up in the rider's active sessions.
@@ -379,6 +396,8 @@ export default function DriverHandoverPage() {
         receiverName: otpReceiverName || "Recipient",
         receiverActorType: "ACTOR_RECEIVER",
         otp: otpCode.trim(),
+        latitude:  gpsCoords?.lat,
+        longitude: gpsCoords?.lng,
       });
       setConfirmed(true);
       if (custody?.mode === "run") {

@@ -97,6 +97,18 @@ export default function StaffHandoverPage() {
   const [otpError, setOtpError] = useState("");
   const [otpSubmitting, setOtpSubmitting] = useState(false);
 
+  // GPS — auto-captured on page mount so any handover the staff member
+  // does carries coordinates. Silent fallback if denied.
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { /* user denied or timeout — proceed without coords */ },
+      { timeout: 8000, enableHighAccuracy: false }
+    );
+  }, []);
+
   // Route the QR target by receiver type — same model as DriverHandoverPage.
   // ACTOR_HUB → /join (staff dashboard scanner)
   // ACTOR_COURIER → /handover/driver?join=… (rider's authenticated flow)
@@ -313,6 +325,8 @@ export default function StaffHandoverPage() {
         receiverName: otpReceiverName || "Recipient",
         receiverActorType: "ACTOR_RECEIVER",
         otp: otpCode.trim(),
+        latitude:  gpsCoords?.lat,
+        longitude: gpsCoords?.lng,
       });
       setConfirmed(true);
       setPhase("success");

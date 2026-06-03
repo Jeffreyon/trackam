@@ -80,14 +80,31 @@ export default function ScanPage() {
       });
   }, [token, waybillId]);
 
+  // Manual re-trigger — used when the user previously denied or the first
+  // attempt timed out and they tap "Capture GPS location" to try again.
   function requestGps() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGpsStatus("denied");
+      return;
+    }
     setGpsStatus("fetching");
     navigator.geolocation.getCurrentPosition(
       (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGpsStatus("ok"); },
       () => setGpsStatus("denied"),
-      { timeout: 8000 }
+      { timeout: 8000, enableHighAccuracy: false }
     );
   }
+
+  // Auto-capture GPS as soon as the form mounts. Browser shows its
+  // permission prompt if the origin doesn't already have a decision;
+  // if denied or unsupported, we just continue without coords.
+  useEffect(() => {
+    if (phase !== "token-form" && phase !== "batch-form") return;
+    if (gpsStatus !== "idle") return;
+    requestGps();
+    // requestGps is stable enough — referencing it would loop the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, gpsStatus]);
 
   async function handleSendOtp() {
     if (!token) return;
@@ -183,8 +200,45 @@ export default function ScanPage() {
           </div>
         )}
 
-        {/* Single handover form */}
-        {phase === "token-form" && tokenInfo && (
+        {/* Wrong-actor redirect — this token isn't for a household receiver.
+            ACTOR_HUB receivers should use /join (in-dashboard) and ACTOR_COURIER
+            riders should use /handover/driver?join=… (phone-OTP authenticated).
+            The driver should never share a /scan URL for these — but if they
+            do, route the visitor to the right place. */}
+        {phase === "token-form" && tokenInfo && !isFinalDelivery && (
+          <div className="flex flex-1 flex-col items-center justify-center text-center gap-4 py-8">
+            <div className="h-14 w-14 rounded-full bg-purple-500/15 flex items-center justify-center">
+              <ShieldCheck className="h-7 w-7 text-purple-400" />
+            </div>
+            <div className="max-w-xs">
+              <p className="text-base font-semibold text-white">This link is for an authenticated operator</p>
+              <p className="text-sm text-stone-400 mt-1">
+                Open it from your Trackam dashboard — identity is bound to your account.
+              </p>
+            </div>
+            <div className="w-full max-w-xs space-y-2">
+              {receiverActorType === "ACTOR_HUB" && (
+                <a
+                  href={`/join?token=${token}`}
+                  className="block w-full text-center rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 h-10 leading-10 text-sm font-semibold text-white shadow-sm shadow-orange-500/20 transition-all"
+                >
+                  Continue to Join Leg
+                </a>
+              )}
+              {receiverActorType === "ACTOR_COURIER" && (
+                <a
+                  href={`/handover/driver?join=${token}`}
+                  className="block w-full text-center rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 h-10 leading-10 text-sm font-semibold text-white shadow-sm shadow-orange-500/20 transition-all"
+                >
+                  Sign in as driver
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Single handover form — only for final delivery (household receiver) */}
+        {phase === "token-form" && tokenInfo && isFinalDelivery && (
           <form onSubmit={handleConfirmSingle} className="space-y-5">
             <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 p-4">
               <p className="text-xs font-semibold text-purple-300 mb-2">You are receiving custody of</p>
