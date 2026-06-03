@@ -149,8 +149,20 @@ async function removeLeg(runId, shipmentId, userId) {
     [runId, userId]
   );
   if (!runCheck.rows[0]) throw Object.assign(new Error("Run not found"), { status: 404 });
+
   if (runCheck.rows[0].status !== "loading") {
-    throw Object.assign(new Error("Cannot remove shipments after departure"), { status: 409 });
+    // After departure, only allow removal if the rider never took custody of this leg.
+    // Once a handover event exists the PoH chain is live and removal is blocked.
+    const heCheck = await query(
+      `SELECT COUNT(*)::int AS cnt FROM handover_events WHERE shipment_id = $1`,
+      [shipmentId]
+    );
+    if (Number(heCheck.rows[0].cnt) > 0) {
+      throw Object.assign(
+        new Error("Cannot remove a shipment that has already been handed over to a rider"),
+        { status: 409 }
+      );
+    }
   }
 
   await query(
