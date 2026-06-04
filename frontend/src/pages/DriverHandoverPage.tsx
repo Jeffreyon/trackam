@@ -507,7 +507,7 @@ export default function DriverHandoverPage() {
               <button
                 type="button"
                 onClick={handleConfirmAsRider}
-                disabled={joinSubmitting || !joinTokenInfo || !getPhoneToken()}
+                disabled={joinSubmitting || (!joinTokenInfo && !joinBatchInfo) || !getPhoneToken()}
                 className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-purple-700 hover:bg-purple-800 text-white h-10 text-xs font-semibold disabled:opacity-60 transition-colors"
                 title={!getPhoneToken() ? "Sign in with your phone first" : undefined}
               >
