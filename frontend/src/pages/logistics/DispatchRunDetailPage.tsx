@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft, Truck, Package, Navigation, CheckCircle2, XCircle,
@@ -136,6 +136,20 @@ export default function DispatchRunDetailPage() {
   }, [handoverSecondsLeft]);
 
   const [handoverConfirmed, setHandoverConfirmed] = useState(false);
+
+  // Refresh the wallet chip whenever the QR modal closes — covers both the
+  // manual X dismiss and the auto-close after confirmation. More reliable than
+  // calling triggerWalletRefresh inside the polling async callback, which can
+  // race with the React re-render that clears the interval.
+  const handoverQrOpenRef = useRef(false);
+  useEffect(() => {
+    const wasOpen = handoverQrOpenRef.current;
+    handoverQrOpenRef.current = handoverQrOpen;
+    if (wasOpen && !handoverQrOpen) {
+      triggerWalletRefresh();
+    }
+  }, [handoverQrOpen]);
+
   useEffect(() => {
     if (!handoverQrOpen || !handoverToken || handoverConfirmed) return;
     const poll = setInterval(async () => {
@@ -149,7 +163,6 @@ export default function DispatchRunDetailPage() {
         if (allHandedOver && arr.length > 0) {
           setHandoverConfirmed(true);
           await loadRun();
-          triggerWalletRefresh();
           setTimeout(() => {
             setHandoverQrOpen(false);
             setHandoverToken(null);
