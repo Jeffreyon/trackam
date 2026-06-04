@@ -12,6 +12,24 @@ const UsersService = require("./users.service");
 // Protect all user routes and attach RBAC context
 router.use(localAuthMiddleware, attachAuthz);
 
+// Staff directory — any authenticated operator can see the roster.
+// Returns a limited view: id, displayName, phone, email, roles.
+// No management actions (create/edit/delete) — those are admin-only below.
+// Must be declared before /:id so "directory" isn't matched as an id.
+router.get(
+  "/directory",
+  asyncHandler(async (req, res) => {
+    const users = await UsersService.listUsers();
+    res.json(users.map((u) => ({
+      id:          u.id,
+      displayName: u.displayName,
+      email:       u.email,
+      phone:       u.phone || null,
+      roles:       u.roles || [],
+    })));
+  })
+);
+
 // List users (admin-only)
 router.get(
   "/",
