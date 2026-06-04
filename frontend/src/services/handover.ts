@@ -115,7 +115,7 @@ export const publicHandoverApi = {
 
   // Receiving-rider variant: no form. OLI Switch resolves the rider via the
   // network_riders index keyed by the phone in their phoneToken. Used by
-  // /handover/driver?join=<token>.
+  // /handover/driver?join=<token> for single-shipment handover tokens.
   confirmAsRider: (body: {
     token: string;
     phoneToken: string;
@@ -123,6 +123,16 @@ export const publicHandoverApi = {
     longitude?: number;
   }) =>
     axios.post<HandoverConfirmation>(`${publicBase()}/api/handover/confirm-as-rider`, body).then((r) => r.data),
+
+  // Bulk variant of confirmAsRider — for dispatch-run batch tokens.
+  // Same phone-token identity derivation, confirms all shipments in one call.
+  confirmBulkAsRider: (body: {
+    token: string;
+    phoneToken: string;
+    latitude?: number;
+    longitude?: number;
+  }) =>
+    axios.post<BulkHandoverConfirmed>(`${publicBase()}/api/handover/confirm-bulk-as-rider`, body).then((r) => r.data),
 };
 
 export const publicWaybillApi = {
