@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { runsApi, type DispatchRunDetail, type RunStatus } from "@/services/runs";
 import { waybillApi, handoverApi, type OperatorWaybill } from "@/services/handover";
+import { triggerWalletRefresh } from "@/components/layout/WalletWidget";
 import { ridersApi, type Rider } from "@/services/logistics";
 import { QRCodeSVG } from "qrcode.react";
 import { formatNaira } from "@/lib/format";
@@ -148,6 +149,7 @@ export default function DispatchRunDetailPage() {
         if (allHandedOver && arr.length > 0) {
           setHandoverConfirmed(true);
           await loadRun();
+          triggerWalletRefresh();
           setTimeout(() => {
             setHandoverQrOpen(false);
             setHandoverToken(null);

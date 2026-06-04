@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { formatNaira } from "@/lib/format";
 import { QRCodeSVG } from "qrcode.react";
-import { custodianApi, publicHandoverApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type RunShipmentItem, type CustodySessionSummary, type TokenInfo, type HandoverConfirmation } from "@/services/handover";
+import { custodianApi, publicHandoverApi, publicBatchApi, publicWaybillApi, ACTOR_LABELS, type ActorType, type RunShipmentItem, type CustodySessionSummary, type TokenInfo, type HandoverConfirmation, type BatchTokenInfo, type BulkHandoverConfirmed } from "@/services/handover";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PhoneInput } from "@/components/PhoneInput";
 import { savePhoneToken, getPhoneToken, clearPhoneToken } from "@/lib/custodianPhoneToken";
@@ -42,9 +42,10 @@ export default function DriverHandoverPage() {
 
   // Pending receiving-rider join state
   const [joinTokenInfo, setJoinTokenInfo] = useState<TokenInfo | null>(null);
+  const [joinBatchInfo, setJoinBatchInfo] = useState<BatchTokenInfo | null>(null);
   const [joinSubmitting, setJoinSubmitting] = useState(false);
   const [joinError, setJoinError] = useState("");
-  const [joinSuccess, setJoinSuccess] = useState<HandoverConfirmation | null>(null);
+  const [joinSuccess, setJoinSuccess] = useState<HandoverConfirmation | BulkHandoverConfirmed | null>(null);
 
   // GPS — auto-capture once when the page mounts so it's available for
   // any handover the rider does on this page (join, delivery OTP, etc.).
@@ -139,15 +140,20 @@ export default function DriverHandoverPage() {
     : null;
 
   // Independent effect: fetch the join token's preview info as soon as the
-  // page mounts so we can show the rider what shipment they're about to take.
-  // The actual confirm happens once the rider authenticates (has a phone token).
+  // page mounts. Dispatch runs generate batch tokens — try batch first, fall
+  // back to single. The actual confirm happens once authenticated.
   useEffect(() => {
     if (!joinToken) return;
-    publicHandoverApi.getTokenInfo(joinToken)
-      .then((info) => setJoinTokenInfo(info))
-      .catch((err) => {
-        const msg = err?.response?.data?.message || "This join link is invalid or expired.";
-        setJoinError(msg);
+    publicBatchApi.getInfo(joinToken)
+      .then((info) => setJoinBatchInfo(info))
+      .catch(() => {
+        // Not a batch token — try single handover token
+        publicHandoverApi.getTokenInfo(joinToken)
+          .then((info) => setJoinTokenInfo(info))
+          .catch((err) => {
+            const msg = err?.response?.data?.message || "This join link is invalid or expired.";
+            setJoinError(msg);
+          });
       });
   }, [joinToken]);
 
@@ -161,22 +167,28 @@ export default function DriverHandoverPage() {
     setJoinSubmitting(true);
     setJoinError("");
     try {
-      const result = await publicHandoverApi.confirmAsRider({
-        token: joinToken,
-        phoneToken: phoneTok,
-        latitude:  gpsCoords?.lat,
-        longitude: gpsCoords?.lng,
-      });
-      setJoinSuccess(result);
-      // After a successful join, refresh the custody picker so the new
-      // shipment shows up in the rider's active sessions.
-      if (custodianToken) {
-        await refreshRunCustody().catch(() => {});
+      let result: HandoverConfirmation | BulkHandoverConfirmed;
+      if (joinBatchInfo) {
+        // Dispatch run — batch token. Use the bulk rider-auth endpoint.
+        result = await publicHandoverApi.confirmBulkAsRider({
+          token: joinToken,
+          phoneToken: phoneTok,
+          latitude:  gpsCoords?.lat,
+          longitude: gpsCoords?.lng,
+        });
       } else {
-        // Force a re-resolve from the saved phone token.
-        const sessionsResp = await custodianApi.sessionsByPhoneToken(phoneTok).catch(() => null);
-        if (sessionsResp?.sessions) setDiscoveredSessions(sessionsResp.sessions);
+        // Single-shipment handover token
+        result = await publicHandoverApi.confirmAsRider({
+          token: joinToken,
+          phoneToken: phoneTok,
+          latitude:  gpsCoords?.lat,
+          longitude: gpsCoords?.lng,
+        });
       }
+      setJoinSuccess(result);
+      // Refresh the custody session list so the new shipment(s) appear
+      const sessionsResp = await custodianApi.sessionsByPhoneToken(phoneTok).catch(() => null);
+      if (sessionsResp?.sessions) setDiscoveredSessions(sessionsResp.sessions);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
         || "Could not join the leg. Make sure your operator has verified your ID.";
@@ -451,8 +463,22 @@ export default function DriverHandoverPage() {
             <div className="flex items-start gap-2.5">
               <Package className="h-4 w-4 text-purple-300 shrink-0 mt-0.5" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-purple-200">A handover is waiting for you</p>
-                {joinTokenInfo ? (
+                <p className="text-xs font-semibold text-purple-200">
+                  {joinBatchInfo
+                    ? `${joinBatchInfo.shipments.length} shipment${joinBatchInfo.shipments.length !== 1 ? "s" : ""} waiting for handover`
+                    : "A handover is waiting for you"}
+                </p>
+                {joinBatchInfo ? (
+                  <div className="mt-1.5 space-y-1 max-h-24 overflow-y-auto">
+                    {joinBatchInfo.shipments.map((s) => (
+                      <p key={s.shipmentId} className="text-[11px] text-purple-300/80 truncate">
+                        {s.waybillNumber ? <span className="font-mono">{s.waybillNumber}</span> : null}
+                        {s.waybillNumber && s.goodsDescription ? " · " : null}
+                        {s.goodsDescription}
+                      </p>
+                    ))}
+                  </div>
+                ) : joinTokenInfo ? (
                   <>
                     <p className="text-[11px] text-purple-300/80 mt-0.5 truncate">
                       {joinTokenInfo.shipment.goodsDescription}
@@ -486,8 +512,8 @@ export default function DriverHandoverPage() {
                 title={!getPhoneToken() ? "Sign in with your phone first" : undefined}
               >
                 {joinSubmitting
-                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Joining…</>
-                  : <><ShieldCheck className="h-3.5 w-3.5" /> Accept custody</>}
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Confirming…</>
+                  : <><ShieldCheck className="h-3.5 w-3.5" /> {joinBatchInfo ? `Accept ${joinBatchInfo.shipments.length} shipments` : "Accept custody"}</>}
               </button>
             </div>
             {!getPhoneToken() && (
@@ -503,8 +529,16 @@ export default function DriverHandoverPage() {
           <div className="mb-5 rounded-xl border border-green-500/25 bg-green-500/[0.08] p-4 flex items-center gap-2.5">
             <CheckCircle2 className="h-4 w-4 text-green-300 shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-green-200">Custody received</p>
-              <p className="text-[10px] text-green-300/60 truncate font-mono">PoH: {joinSuccess.proofHash?.slice(0, 16)}…</p>
+              <p className="text-xs font-semibold text-green-200">
+                {"confirmedCount" in joinSuccess
+                  ? `${joinSuccess.confirmedCount} shipment${joinSuccess.confirmedCount !== 1 ? "s" : ""} received`
+                  : "Custody received"}
+              </p>
+              <p className="text-[10px] text-green-300/60 truncate font-mono">
+                {"proofHash" in joinSuccess
+                  ? `PoH: ${joinSuccess.proofHash?.slice(0, 16)}…`
+                  : `${joinSuccess.proofHashes?.length} proof${joinSuccess.proofHashes?.length !== 1 ? "s" : ""} recorded`}
+              </p>
             </div>
           </div>
         )}
