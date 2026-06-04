@@ -353,6 +353,8 @@ export default function StaffHandoverPage() {
       setCustody(info);
       if (!info.shipments?.length) {
         setPhase("success");
+      } else {
+        setPhase("run-custody");
       }
     } catch {
       // silently ignore
