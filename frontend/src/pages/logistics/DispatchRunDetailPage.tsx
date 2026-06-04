@@ -356,7 +356,7 @@ export default function DispatchRunDetailPage() {
           </button>
         )}
 
-        {run.status === "in_transit" && run.legs.length > 0 && run.legs.some((l) => l.handoverCount === 0) && (
+        {(run.status === "loading" || run.status === "in_transit") && run.legs.length > 0 && run.legs.some((l) => l.handoverCount === 0) && (
           <div className="space-y-2">
             <button
               onClick={handleHandoverToDriver}
@@ -473,7 +473,7 @@ export default function DispatchRunDetailPage() {
                     )}
                   </div>
                 </div>
-                {!isLocked && (
+                {(run.status === "loading" || (run.status === "in_transit" && leg.handoverCount === 0)) && (
                   <button onClick={() => handleRemoveLeg(leg.shipmentId)} disabled={removingId === leg.shipmentId}
                     className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-stone-600 hover:bg-red-500/[0.1] hover:text-red-400 transition-colors disabled:opacity-40">
                     {removingId === leg.shipmentId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { MapPin, Package, Loader2, CheckCircle2, ShieldCheck, ArrowRight, Layers, AlertCircle, Phone as PhoneIcon, Send } from "lucide-react";
+import { MapPin, Package, Loader2, CheckCircle2, ShieldCheck, ArrowRight, Layers, AlertCircle, Phone as PhoneIcon, Send, Camera } from "lucide-react";
 import {
   publicHandoverApi, publicBatchApi,
   ACTOR_LABELS, type ActorType, type TokenInfo, type HandoverConfirmation,
@@ -8,8 +8,22 @@ import {
 } from "@/services/handover";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PhoneInput } from "@/components/PhoneInput";
+import QRScanner from "@/components/QRScanner";
 
-type Phase = "loading" | "token-form" | "batch-form" | "submitting" | "success" | "error";
+type Phase = "scanner" | "loading" | "token-form" | "batch-form" | "submitting" | "success" | "error";
+
+/** Extract a handover token from whatever the scanner returned */
+function extractScanToken(raw: string): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  try {
+    const url = new URL(trimmed);
+    const t = url.searchParams.get("token");
+    if (t) return t;
+  } catch { /* not a URL */ }
+  if (/^[a-f0-9]{32,}$/i.test(trimmed)) return trimmed;
+  return null;
+}
 
 export default function ScanPage() {
   const [params] = useSearchParams();
@@ -17,7 +31,10 @@ export default function ScanPage() {
   const token = params.get("token");
   const waybillId = params.get("waybill");
 
-  const [phase, setPhase] = useState<Phase>("loading");
+  // If no token in the URL, show the scanner so riders/staff can scan on-device
+  const [phase, setPhase] = useState<Phase>((!token && !waybillId) ? "scanner" : "loading");
+  const [scannedToken, setScannedToken] = useState<string | null>(token);
+  const [scanError, setScanError] = useState("");
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
   const [batchInfo, setBatchInfo] = useState<BatchTokenInfo | null>(null);
   const [confirmation, setConfirmation] = useState<HandoverConfirmation | BulkHandoverConfirmed | null>(null);
@@ -46,20 +63,33 @@ export default function ScanPage() {
 
   const isFinalDelivery = receiverActorType === "ACTOR_RECEIVER";
 
+  function handleScannerResult(raw: string) {
+    const extracted = extractScanToken(raw);
+    if (!extracted) {
+      setScanError("That doesn't look like a handover QR code. Try again.");
+      return;
+    }
+    setScannedToken(extracted);
+    setScanError("");
+    setPhase("loading");
+  }
+
   useEffect(() => {
-    if (!token && !waybillId) {
+    if (phase === "scanner") return;
+    const activeToken = scannedToken;
+    if (!activeToken && !waybillId) {
       setError("No valid token or waybill ID in this link.");
       setPhase("error");
       return;
     }
-    if (!token && waybillId) {
+    if (!activeToken && waybillId) {
       navigate(`/track/${waybillId}`, { replace: true });
       return;
     }
-    if (!token) return;
+    if (!activeToken) return;
 
     // Try batch token first, fall back to single token
-    publicBatchApi.getInfo(token)
+    publicBatchApi.getInfo(activeToken)
       .then((info) => {
         setBatchInfo(info);
         setReceiverActorType(info.receiverActorType as ActorType);
@@ -67,7 +97,7 @@ export default function ScanPage() {
       })
       .catch(() => {
         // Not a batch token — try single handover token
-        publicHandoverApi.getTokenInfo(token)
+        publicHandoverApi.getTokenInfo(activeToken)
           .then((info) => {
             setTokenInfo(info);
             setReceiverActorType(info.receiverActorType || info.giverActorType);
@@ -78,7 +108,7 @@ export default function ScanPage() {
             setPhase("error");
           });
       });
-  }, [token, waybillId]);
+  }, [scannedToken, waybillId, phase]);
 
   // Manual re-trigger — used when the user previously denied or the first
   // attempt timed out and they tap "Capture GPS location" to try again.
@@ -107,11 +137,11 @@ export default function ScanPage() {
   }, [phase, gpsStatus]);
 
   async function handleSendOtp() {
-    if (!token) return;
+    if (!scannedToken) return;
     setOtpSending(true);
     setOtpError("");
     try {
-      const result = await publicHandoverApi.requestDeliveryOtp(token);
+      const result = await publicHandoverApi.requestDeliveryOtp(scannedToken!);
       if (!result.sent) {
         setOtpError("Could not send the code. Check the phone number on the waybill is correct.");
         return;
@@ -129,7 +159,7 @@ export default function ScanPage() {
 
   async function handleConfirmSingle(e: React.FormEvent) {
     e.preventDefault();
-    if (!token) return;
+    if (!scannedToken) return;
     if (isFinalDelivery && otp.trim().length < 4) {
       setConfirmError("Enter the 6-digit code we sent to the receiver's phone.");
       return;
@@ -138,7 +168,7 @@ export default function ScanPage() {
     setPhase("submitting");
     try {
       const result = await publicHandoverApi.confirm({
-        token,
+        token: scannedToken,
         receiverName,
         receiverPhone: receiverPhone || undefined,
         receiverActorType,
@@ -157,12 +187,12 @@ export default function ScanPage() {
 
   async function handleConfirmBatch(e: React.FormEvent) {
     e.preventDefault();
-    if (!token) return;
+    if (!scannedToken) return;
     setConfirmError("");
     setPhase("submitting");
     try {
       const result = await publicBatchApi.confirm({
-        token,
+        token: scannedToken,
         receiverName,
         receiverPhone: receiverPhone || undefined,
         receiverActorType,
@@ -183,6 +213,30 @@ export default function ScanPage() {
       <PublicNav />
 
       <main className="flex-1 flex flex-col px-4 pt-24 pb-12 max-w-md mx-auto w-full">
+
+        {/* Scanner phase — shown when no token in URL (rider/staff on-device scan) */}
+        {phase === "scanner" && (
+          <div className="flex-1 flex flex-col gap-5 py-4">
+            <div className="text-center space-y-1">
+              <div className="h-12 w-12 rounded-xl bg-purple-500/15 flex items-center justify-center mx-auto">
+                <Camera className="h-6 w-6 text-purple-400" />
+              </div>
+              <p className="text-base font-semibold text-white">Scan handover QR</p>
+              <p className="text-xs text-stone-400 max-w-xs mx-auto">
+                Point your camera at the QR code on the dispatcher's screen to begin the handover.
+              </p>
+            </div>
+            <QRScanner
+              onScan={handleScannerResult}
+              onError={(msg) => { setScanError(msg); }}
+            />
+            {scanError && (
+              <p className="flex items-center gap-1.5 text-[11px] text-red-400 bg-red-500/[0.1] border border-red-500/20 rounded-lg px-3 py-2">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />{scanError}
+              </p>
+            )}
+          </div>
+        )}
 
         {phase === "loading" && (
           <div className="flex-1 flex items-center justify-center">

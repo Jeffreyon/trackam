@@ -253,14 +253,23 @@ export default function TrackWaybillPage() {
                     day: "2-digit", month: "short", year: "numeric",
                   })}
                 </p>
-                <a
-                  href={publicWaybillApi.pdfUrl(data.waybill.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] text-orange-400 hover:underline"
-                >
-                  <ExternalLink className="h-3 w-3" /> Download PDF
-                </a>
+                {(() => {
+                  const saved = id ? getVerifyToken(id) : null;
+                  const pdfHref = saved
+                    ? `${publicWaybillApi.pdfUrl(data.waybill.id)}?verifyToken=${encodeURIComponent(saved.token)}`
+                    : publicWaybillApi.pdfUrl(data.waybill.id);
+                  return (
+                    <a
+                      href={pdfHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-orange-400 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      {saved ? "Download PDF (full details)" : "Download PDF"}
+                    </a>
+                  );
+                })()}
               </div>
             </div>
 

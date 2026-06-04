@@ -2,7 +2,7 @@
 
 ## Current state summary
 
-Trackam has a working operator platform with full dispatch, rider management, multi-operator waybills, PoH chain, custodian OTP sessions, disputes, and cost accounting. The OLI Switch integration is live. Core infrastructure is production-grade.
+Trackam is a commercial operator platform with full dispatch, rider management, multi-operator waybills, PoH chain, custodian OTP sessions, disputes, cost accounting, and a Phase 1 founder admin dashboard. The OLI Switch integration is live with a network-wide rider identity index. Core infrastructure is production-grade.
 
 ## Open gaps
 
@@ -34,7 +34,6 @@ Trackam has a working operator platform with full dispatch, rider management, mu
 | Gap | Detail |
 |---|---|
 | Fee invoice / billing statement | No period-based exportable fee summary (PDF or CSV) |
-| Multi-admin support | Admin auth uses a single `ADMIN_SECRET`; no per-admin audit trail |
 
 ### Live tracking
 
@@ -61,3 +60,11 @@ Trackam has a working operator platform with full dispatch, rider management, mu
 - Graceful shutdown — implemented
 - Phone normalization — implemented
 - SSE heartbeat and zombie connection cleanup — implemented
+- GPS auto-capture on scan and handover pages — implemented
+- OTP-based delivery confirmation (ScanPage, DriverHandoverPage, StaffHandoverPage) — implemented
+- Rider government ID capture at onboarding — implemented
+- Admin identity verification queue (riders + staff, with photo review) — implemented
+- Rider snapshot push to OLI Switch network index (`network_riders`) — implemented
+- Phase 1 commercial layer: org-level OLI API key, `owner` role, first-signup auto-promotion — implemented
+- Admin dashboard (org settings, OLI connection, wallet, user management, roles, events, identity verification) — implemented, dark theme matching operator UI
+- Receiver identity derived from custodian session — no manual form for hub/rider actors — implemented
