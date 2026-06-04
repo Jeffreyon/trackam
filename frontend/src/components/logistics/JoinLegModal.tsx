@@ -25,8 +25,8 @@ import {
 } from "lucide-react";
 import QRScanner from "@/components/QRScanner";
 import {
-  publicHandoverApi, waybillApi, ACTOR_LABELS,
-  type TokenInfo,
+  publicHandoverApi, publicBatchApi, waybillApi, ACTOR_LABELS,
+  type TokenInfo, type BatchTokenInfo,
 } from "@/services/handover";
 import { useProfileStore } from "@/hooks/useProfile";
 
@@ -62,6 +62,7 @@ export default function JoinLegModal({ onClose, onJoined }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [token, setToken] = useState<string | null>(null);
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
+  const [batchInfo, setBatchInfo] = useState<BatchTokenInfo | null>(null);
   const [error, setError] = useState("");
   const [joinedShipmentId, setJoinedShipmentId] = useState<string | null>(null);
 
@@ -85,6 +86,13 @@ export default function JoinLegModal({ onClose, onJoined }: Props) {
     setToken(extracted);
     setPhase("preview");
     try {
+      // Try batch token first — dispatch runs generate bulk tokens
+      const batch = await publicBatchApi.getInfo(extracted).catch(() => null);
+      if (batch) {
+        setBatchInfo(batch);
+        return; // preview renders from batchInfo
+      }
+      // Fall back to single handover token
       const info = await publicHandoverApi.getTokenInfo(extracted);
       setTokenInfo(info);
     } catch (err: unknown) {
@@ -106,10 +114,24 @@ export default function JoinLegModal({ onClose, onJoined }: Props) {
       const displayName = (profile as { displayName?: string; email?: string } | null)?.displayName
         || (profile as { email?: string } | null)?.email
         || "Operator";
-      const result = await waybillApi.confirmAndJoin(token, displayName);
-      setJoinedShipmentId(result.shipmentId);
-      setPhase("success");
-      onJoined?.(result.shipmentId);
+
+      if (batchInfo) {
+        // Batch token — operator confirms receipt of all shipments in one call
+        const result = await publicBatchApi.confirm({
+          token,
+          receiverName: displayName,
+          receiverActorType: batchInfo.receiverActorType,
+        });
+        // For batch there's no single shipmentId — signal success with the first
+        setJoinedShipmentId(result.proofHashes?.[0]?.shipmentId ?? null);
+        setPhase("success");
+        onJoined?.(result.proofHashes?.[0]?.shipmentId ?? "");
+      } else {
+        const result = await waybillApi.confirmAndJoin(token, displayName);
+        setJoinedShipmentId(result.shipmentId);
+        setPhase("success");
+        onJoined?.(result.shipmentId);
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg || "Couldn't join this leg. The token may have already been used.");
@@ -120,6 +142,7 @@ export default function JoinLegModal({ onClose, onJoined }: Props) {
   function reset() {
     setToken(null);
     setTokenInfo(null);
+    setBatchInfo(null);
     setError("");
     setJoinedShipmentId(null);
     setPasteValue("");
@@ -233,12 +256,53 @@ export default function JoinLegModal({ onClose, onJoined }: Props) {
           {/* ── PREVIEW — confirm before accepting ────────────────────────── */}
           {phase === "preview" && (
             <div className="space-y-4">
-              {!tokenInfo ? (
+              {!tokenInfo && !batchInfo ? (
                 <div className="flex flex-col items-center gap-3 py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
                   <p className="text-xs text-stone-400">Looking up handover…</p>
                 </div>
-              ) : (
+              ) : batchInfo ? (
+                // ── Batch token — show all shipments in the run ──────────
+                <>
+                  <div className="rounded-lg border border-purple-500/20 bg-purple-500/[0.06] p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-purple-400 shrink-0" />
+                      <p className="text-xs font-semibold text-purple-200">
+                        {batchInfo.shipments.length} shipment{batchInfo.shipments.length !== 1 ? "s" : ""} incoming
+                      </p>
+                    </div>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {batchInfo.shipments.map((s) => (
+                        <div key={s.shipmentId} className="rounded-md bg-white/[0.04] border border-purple-500/10 px-2.5 py-1.5">
+                          {s.waybillNumber && (
+                            <p className="text-[10px] font-mono font-semibold text-purple-300">{s.waybillNumber}</p>
+                          )}
+                          <p className="text-[11px] text-purple-300/80 truncate">{s.goodsDescription}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-3">
+                    <p className="text-[11px] text-amber-300 leading-relaxed">
+                      Accepting will record a proof-of-handover for each shipment using your operator identity.
+                      Your name will be recorded on all {batchInfo.shipments.length} events.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleAccept}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-purple-500 to-purple-700 hover:from-purple-400 hover:to-purple-600 h-11 text-sm font-semibold text-white shadow-sm shadow-purple-500/20 transition-all"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    Accept all {batchInfo.shipments.length} shipments
+                  </button>
+                  <button onClick={reset} className="w-full text-[11px] text-stone-500 hover:text-stone-300 transition-colors">
+                    Cancel
+                  </button>
+                </>
+              ) : tokenInfo ? (
+                // ── Single token ─────────────────────────────────────────
                 <>
                   <div className="flex items-start gap-3 rounded-lg border border-purple-500/20 bg-purple-500/[0.06] p-3">
                     <Package className="h-4 w-4 text-purple-400 shrink-0 mt-0.5" />
@@ -278,14 +342,11 @@ export default function JoinLegModal({ onClose, onJoined }: Props) {
                     <ShieldCheck className="h-4 w-4" />
                     Accept custody
                   </button>
-                  <button
-                    onClick={reset}
-                    className="w-full text-[11px] text-stone-500 hover:text-stone-300 transition-colors"
-                  >
+                  <button onClick={reset} className="w-full text-[11px] text-stone-500 hover:text-stone-300 transition-colors">
                     Cancel
                   </button>
                 </>
-              )}
+              ) : null}
             </div>
           )}
 

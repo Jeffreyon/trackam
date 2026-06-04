@@ -350,8 +350,44 @@ export default function ScanPage() {
           </form>
         )}
 
-        {/* Batch handover form */}
-        {phase === "batch-form" && batchInfo && (
+        {/* Batch token — non-final actors must use their authenticated flow.
+            ACTOR_COURIER → DriverHandoverPage (phone-OTP identity)
+            ACTOR_HUB     → JoinLegModal in dashboard (operator profile identity)
+            Only ACTOR_RECEIVER stays here for OTP-based delivery confirmation. */}
+        {phase === "batch-form" && batchInfo && receiverActorType !== "ACTOR_RECEIVER" && (
+          <div className="flex flex-1 flex-col items-center justify-center text-center gap-4 py-8">
+            <div className="h-14 w-14 rounded-full bg-purple-500/15 flex items-center justify-center">
+              <ShieldCheck className="h-7 w-7 text-purple-400" />
+            </div>
+            <div className="max-w-xs">
+              <p className="text-base font-semibold text-white">Sign in to confirm receipt</p>
+              <p className="text-sm text-stone-400 mt-1">
+                {batchInfo.shipments.length} shipment{batchInfo.shipments.length !== 1 ? "s" : ""} — your identity is bound to your account, not this form.
+              </p>
+            </div>
+            <div className="w-full max-w-xs space-y-2">
+              {receiverActorType === "ACTOR_COURIER" && (
+                <a
+                  href={`/handover/driver?join=${scannedToken}`}
+                  className="block w-full text-center rounded-lg bg-gradient-to-b from-purple-500 to-purple-700 hover:from-purple-400 hover:to-purple-600 h-10 leading-10 text-sm font-semibold text-white shadow-sm shadow-purple-500/20 transition-all"
+                >
+                  Sign in as driver
+                </a>
+              )}
+              {receiverActorType === "ACTOR_HUB" && (
+                <a
+                  href={`/join?token=${scannedToken}`}
+                  className="block w-full text-center rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 h-10 leading-10 text-sm font-semibold text-white shadow-sm shadow-orange-500/20 transition-all"
+                >
+                  Continue to Join Leg
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Batch handover form — only for final-mile delivery to household receiver */}
+        {phase === "batch-form" && batchInfo && receiverActorType === "ACTOR_RECEIVER" && (
           <form onSubmit={handleConfirmBatch} className="space-y-5">
             <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 p-4">
               <div className="flex items-center gap-2 mb-2">
