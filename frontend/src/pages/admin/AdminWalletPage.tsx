@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
-  Wallet, Loader2, ArrowUpRight, ArrowDownRight, RefreshCw, ExternalLink,
+  Wallet, Loader2, ArrowUpRight, ArrowDownRight, RefreshCw, ExternalLink, CheckCircle2,
 } from "lucide-react";
 import { walletApi, type WalletData, type WalletTransaction } from "@/services/handover";
 import { formatNaira, formatDateTime } from "@/lib/format";
@@ -13,6 +14,10 @@ export default function AdminWalletPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [topupAmount, setTopupAmount] = useState("");
   const [topupLoading, setTopupLoading] = useState(false);
+  const [paymentPending, setPaymentPending] = useState(false);
+  const [paymentSettled, setPaymentSettled] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -23,14 +28,47 @@ export default function AdminWalletPage() {
       ]);
       setWallet(w);
       setTransactions(txns);
+      return w;
     } catch {
-      // handled
+      return null;
     } finally {
       if (isRefresh) setRefreshing(false); else setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // When Paystack redirects back with ?reference=xxx, poll until the webhook credits the wallet.
+  // After 3 polls with no change, call /topup/verify as a fallback (idempotent server-side verify).
+  useEffect(() => {
+    const ref = searchParams.get("reference");
+    if (!ref) return;
+    setSearchParams({}, { replace: true });
+    setPaymentPending(true);
+    triggerWalletRefresh();
+
+    let attempts = 0;
+    const prevBalance = wallet?.balance ?? null;
+
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      // After 3 polls, ask the switch to verify the reference directly (webhook fallback)
+      if (attempts === 3) {
+        walletApi.verifyTopup(ref).catch(() => {});
+      }
+      const updated = await load(true);
+      triggerWalletRefresh();
+      const credited = updated && prevBalance !== null && updated.balance > prevBalance;
+      if (credited || attempts >= 12) {
+        clearInterval(pollRef.current!);
+        setPaymentPending(false);
+        if (credited) setPaymentSettled(true);
+      }
+    }, 3000);
+
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleTopup(e: React.FormEvent) {
     e.preventDefault();
@@ -98,6 +136,20 @@ export default function AdminWalletPage() {
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} /> Refresh
         </button>
       </div>
+
+      {/* Payment return banners */}
+      {paymentPending && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-4 py-3 text-sm text-amber-300">
+          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+          Payment received — waiting for confirmation from the network…
+        </div>
+      )}
+      {paymentSettled && !paymentPending && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Wallet topped up successfully.
+        </div>
+      )}
 
       {/* Balance + top-up */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

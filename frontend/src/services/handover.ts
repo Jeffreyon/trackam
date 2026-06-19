@@ -409,4 +409,6 @@ export const walletApi = {
     apiClient.get<WalletTransaction[]>("/api/wallet/transactions").then((r) => r.data),
   topup: (amountNgn: number) =>
     apiClient.post<TopupInit>("/api/wallet/topup", { amount: amountNgn }).then((r) => r.data),
+  verifyTopup: (reference: string) =>
+    apiClient.post<{ credited: boolean; wallet: WalletData }>("/api/wallet/topup/verify", { reference }).then((r) => r.data),
 };
