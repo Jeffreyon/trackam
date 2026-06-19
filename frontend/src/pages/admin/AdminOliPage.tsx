@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Loader2, CheckCircle2, Key, Plug, RefreshCw, AlertCircle, Clock,
+  Loader2, CheckCircle2, Key, Plug, RefreshCw, AlertCircle, Clock, Copy, Check,
 } from "lucide-react";
 import { orgOliApi, type OrgOliStatus } from "@/services/admin.api";
 import { triggerWalletRefresh } from "@/components/layout/WalletWidget";
@@ -21,6 +21,16 @@ export default function AdminOliPage() {
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [rotating, setRotating] = useState(false);
   const [rotated, setRotated] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function handleCopyId() {
+    const id = status?.operatorId;
+    if (!id) return;
+    navigator.clipboard.writeText(id).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   useEffect(() => {
     orgOliApi.get()
@@ -123,6 +133,25 @@ export default function AdminOliPage() {
                   </p>
                 </div>
               </div>
+
+              {status?.operatorId && (
+                <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-600 mb-1">Operator ID</p>
+                    <p className="text-xs font-mono text-stone-300 truncate">{status.operatorId}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyId}
+                    title="Copy operator ID"
+                    className="ml-3 shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] text-stone-500 hover:text-stone-200 transition-colors"
+                  >
+                    {copied
+                      ? <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              )}
 
               {rotated && (
                 <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 text-xs text-emerald-300">
