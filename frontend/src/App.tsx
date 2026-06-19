@@ -27,6 +27,8 @@ import AdminOliPage from "@/pages/admin/AdminOliPage";
 import AdminWalletPage from "@/pages/admin/AdminWalletPage";
 import AdminIdentityVerificationPage from "@/pages/admin/AdminIdentityVerificationPage";
 import AdminRidersPage from "@/pages/admin/AdminRidersPage";
+import CarrierDirectoryPage from "@/pages/network/CarrierDirectoryPage";
+import CarrierProfilePage from "@/pages/network/CarrierProfilePage";
 import ShipmentsPage from "@/pages/logistics/ShipmentsPage";
 import ShipmentDetailPage from "@/pages/logistics/ShipmentDetailPage";
 import WaybillsPage from "@/pages/logistics/WaybillsPage";
@@ -71,6 +73,8 @@ const router = createBrowserRouter([
       { path: "riders", element: <RidersPage /> },
       { path: "staff",  element: <StaffPage /> },
       { path: "routes", element: <RoutesPage /> },
+      { path: "network",         element: <CarrierDirectoryPage /> },
+      { path: "carrier-profile", element: <CarrierProfilePage /> },
       { path: "account", element: <AccountPage /> },
       { path: "notifications", element: <NotificationsPage /> },
       { path: "security", element: <SecurityPage /> },

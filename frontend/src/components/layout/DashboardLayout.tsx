@@ -20,6 +20,8 @@ import {
   User,
   ShieldCheck,
   Bell,
+  Globe,
+  Briefcase,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import WalletWidget from "./WalletWidget";
@@ -45,6 +47,13 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: "Network",
+    items: [
+      { to: "/dashboard/network",          label: "Carrier Directory", icon: Globe,     end: false },
+      { to: "/dashboard/carrier-profile",  label: "Carrier Profile",   icon: Briefcase, end: false },
+    ],
+  },
+  {
     label: "Personal",
     items: [
       { to: "/dashboard/account",       label: "Account",       icon: User,        end: false },
@@ -62,9 +71,11 @@ const PAGE_TITLES: Record<string, { title: string; description: string }> = {
   "/dashboard/riders":             { title: "Riders",         description: "Your active dispatch riders." },
   "/dashboard/staff":              { title: "Staff",          description: "Your team — for internal custody handovers." },
   "/dashboard/routes":             { title: "Routes",         description: "Set up your standard delivery lanes." },
-  "/dashboard/account":            { title: "Account",        description: "Your display name, email, and profile photo." },
-  "/dashboard/security":           { title: "Security",       description: "Password, sessions, and registered devices." },
-  "/dashboard/notifications":      { title: "Notifications",  description: "How and when you'd like to be notified." },
+  "/dashboard/network":            { title: "Carrier Directory",  description: "Browse logistics operators on the Trackam network." },
+  "/dashboard/carrier-profile":    { title: "Carrier Profile",    description: "Configure how your operation appears in the network." },
+  "/dashboard/account":            { title: "Account",            description: "Your display name, email, and profile photo." },
+  "/dashboard/security":           { title: "Security",           description: "Password, sessions, and registered devices." },
+  "/dashboard/notifications":      { title: "Notifications",      description: "How and when you'd like to be notified." },
 };
 
 function SidebarContent({

@@ -6,6 +6,7 @@ export type UserProfile = {
   displayName?: string | null;
   photoURL?: string | null;
   roles?: string[];
+  capabilities?: string[];
   preferences?: {
     locale?: string;
     theme?: string;
