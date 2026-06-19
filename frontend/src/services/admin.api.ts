@@ -127,5 +127,8 @@ export const orgOliApi = {
     apiClient.post<OrgOliStatus>("/api/oli-account/org/api-key", { apiKey }).then((r) => r.data),
   rotateApiKey: () =>
     apiClient.post<OrgOliStatus>("/api/oli-account/org/api-key/rotate").then((r) => r.data),
+  /** Rotate the key on the OLI Switch and auto-save the new key — stays connected. */
+  rotateSwitchKey: () =>
+    apiClient.post<OrgOliStatus & { rotated: boolean }>("/api/oli-account/rotate-switch-key").then((r) => r.data),
 };
 

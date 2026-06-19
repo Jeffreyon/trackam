@@ -87,6 +87,39 @@ router.post("/api-key", localAuth, asyncHandler(async (req, res) => {
   res.json({ status: "active", hasApiKey: true });
 }));
 
+// POST /api/oli-account/rotate-switch-key — rotate the key on the switch and save the new one locally
+router.post("/rotate-switch-key", localAuth, attachAuthz, requireAdmin, asyncHandler(async (req, res) => {
+  // Resolve current key: org-level takes priority (same priority as the proxy)
+  const orgConfig = await repo.getOrgConfig();
+  const currentKey = orgConfig?.oli_api_key || (await repo.findByUserId(req.user.uid))?.oli_api_key;
+  if (!currentKey) {
+    return res.status(400).json({ message: "No OLI API key configured. Add your API key in settings first." });
+  }
+
+  const switchUrl = (process.env.OLI_SWITCH_URL || "http://localhost:5000").replace(/\/$/, "");
+  const switchRes = await fetch(`${switchUrl}/api/operators/me/rotate-key`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-oli-api-key": currentKey,
+    },
+    body: "{}",
+  });
+
+  if (!switchRes.ok) {
+    const data = await switchRes.json().catch(() => ({}));
+    return res.status(switchRes.status).json({ message: data?.message || "Failed to rotate key on OLI network" });
+  }
+
+  const { apiKey: newKey } = await switchRes.json();
+
+  // Save to both stores to keep them in sync
+  await repo.saveApiKey(req.user.uid, newKey);
+  if (orgConfig) await repo.saveOrgApiKey(newKey);
+
+  res.json({ status: "active", hasApiKey: true, rotated: true });
+}));
+
 // POST /api/oli-account/api-key/rotate — clear the stored key
 router.post("/api-key/rotate", localAuth, asyncHandler(async (req, res) => {
   const orgConfig = await repo.getOrgConfig();

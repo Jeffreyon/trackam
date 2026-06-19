@@ -16,4 +16,8 @@ export const oliAccountApi = {
 
   rotateApiKey: (): Promise<OliAccount> =>
     apiClient.post<OliAccount>("/api/oli-account/api-key/rotate").then((r) => r.data),
+
+  /** Rotates the key on the OLI Switch and saves the new key locally — replaces the old key. */
+  rotateSwitchKey: (): Promise<OliAccount & { rotated: boolean }> =>
+    apiClient.post<OliAccount & { rotated: boolean }>("/api/oli-account/rotate-switch-key").then((r) => r.data),
 };

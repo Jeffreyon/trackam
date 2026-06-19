@@ -20,6 +20,7 @@ export default function AdminOliPage() {
 
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [rotating, setRotating] = useState(false);
+  const [rotated, setRotated] = useState(false);
 
   useEffect(() => {
     orgOliApi.get()
@@ -54,10 +55,12 @@ export default function AdminOliPage() {
   async function handleRotate() {
     setRotating(true);
     try {
-      const updated = await orgOliApi.rotateApiKey();
+      const updated = await orgOliApi.rotateSwitchKey();
       setStatus(updated);
       triggerWalletRefresh();
       setConfirmRotate(false);
+      setRotated(true);
+      setTimeout(() => setRotated(false), 4000);
     } catch {
       // handled inline
     } finally {
@@ -121,11 +124,17 @@ export default function AdminOliPage() {
                 </div>
               </div>
 
+              {rotated && (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 text-xs text-emerald-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  Key rotated on the OLI network and saved. New key emailed to you.
+                </div>
+              )}
               <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-stone-300">Rotate API key</p>
                   <p className="text-[11px] text-stone-500 mt-0.5 max-w-md">
-                    This disconnects the entire organisation until a new key is entered.
+                    Generates a new key on the OLI Switch and saves it here automatically.
                   </p>
                 </div>
                 <button
@@ -146,7 +155,7 @@ export default function AdminOliPage() {
                 <div>
                   <p className="text-sm font-semibold text-red-300">Rotate organisation API key?</p>
                   <p className="text-xs text-red-400/80 mt-1 leading-relaxed">
-                    All operators will be disconnected until a new key is entered.
+                    A new key is issued on the OLI Switch, your old key is immediately invalidated, and the new key is saved here automatically.
                   </p>
                 </div>
               </div>

@@ -144,7 +144,7 @@ STORAGE_DIRECTORY=storage
 STORAGE_URL_PREFIX=http://127.0.0.1:4429/storage
 
 # OLI Switch (connects you to the logistics network)
-OLI_SWITCH_URL=https://oli-switch-production.up.railway.app
+OLI_SWITCH_URL=https://switch-production-5384.up.railway.app
 OLI_API_KEY=${existingOliKey}
 OLI_OPERATOR_ID=${existingOliOperatorId}
 OLI_TRACKING_ENDPOINT=
