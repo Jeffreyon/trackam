@@ -48,23 +48,30 @@ export default function AdminWalletPage() {
     triggerWalletRefresh();
 
     let attempts = 0;
-    const prevBalance = wallet?.balance ?? null;
+    let settled = false;
 
+    function settle() {
+      if (settled) return;
+      settled = true;
+      clearInterval(pollRef.current!);
+      load(true).then(() => triggerWalletRefresh());
+      setPaymentPending(false);
+      setPaymentSettled(true);
+    }
+
+    // Call verify immediately on return — idempotent, safe to call even if webhook already ran
+    walletApi.verifyTopup(ref)
+      .then((r) => { if (r.credited || r.wallet) settle(); })
+      .catch(() => {});
+
+    // Also poll so we catch it if webhook fires before verify responds
     pollRef.current = setInterval(async () => {
       attempts++;
-      // After 3 polls, ask the switch to verify the reference directly (webhook fallback)
-      if (attempts === 3) {
-        walletApi.verifyTopup(ref).catch(() => {});
+      const txns = await walletApi.transactions().catch(() => []);
+      if (txns.some((t: { reference: string }) => t.reference === ref) || attempts >= 10) {
+        settle();
       }
-      const updated = await load(true);
-      triggerWalletRefresh();
-      const credited = updated && prevBalance !== null && updated.balance > prevBalance;
-      if (credited || attempts >= 12) {
-        clearInterval(pollRef.current!);
-        setPaymentPending(false);
-        if (credited) setPaymentSettled(true);
-      }
-    }, 3000);
+    }, 2000);
 
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
