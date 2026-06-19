@@ -92,6 +92,9 @@ async function signup({ email, password, profile = {} }) {
   // each new org's first signup becomes the org owner.
   // Excludes synthetic system users (id wrapped in double underscores, e.g. '__org__').
   let roles = profile.roles || [];
+  const capabilities = Array.isArray(profile.capabilities) && profile.capabilities.length > 0
+    ? profile.capabilities
+    : ["carry"];
   try {
     const { query: dbQuery } = require("../../core/db/postgres");
     const countResult = await dbQuery(
@@ -109,6 +112,7 @@ async function signup({ email, password, profile = {} }) {
     displayName: profile.displayName,
     photoURL: profile.photoURL,
     roles,
+    capabilities,
     emailVerified: false,
     preferences: profile.preferences || {},
     passwordHash,

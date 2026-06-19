@@ -10,6 +10,7 @@ function mapRow(row) {
     photoURL: row.photo_url || null,
     preferences: row.preferences || {},
     roles: row.roles || [],
+    capabilities: row.capabilities || ["carry"],
     emailVerified: Boolean(row.email_verified),
 
     // Staff profile — mirrors riders. Photo deliberately omitted from the
@@ -47,7 +48,7 @@ function mapRowWithPhoto(row) {
 // it's a base64 blob; queries that need it pass includePhoto=true to
 // switch to USER_COLS_WITH_PHOTO.
 const USER_COLS = `
-  id, email, display_name, photo_url, preferences, roles, email_verified,
+  id, email, display_name, photo_url, preferences, roles, capabilities, email_verified,
   phone, phone_verified_at,
   govt_id_type, govt_id_number, govt_id_verified_at, govt_id_verified_by,
   govt_id_rejection_reason,
@@ -195,6 +196,7 @@ async function upsert(id, data) {
     photo_url: data.photoURL || null,
     preferences: data.preferences || {},
     roles: Array.isArray(data.roles) ? data.roles : [],
+    capabilities: Array.isArray(data.capabilities) ? data.capabilities : ["carry"],
     email_verified: data.emailVerified ? true : false,
     updated_at: data.updatedAt || Date.now(),
     password_hash: data.passwordHash || null,
@@ -209,18 +211,20 @@ async function upsert(id, data) {
       photo_url,
       preferences,
       roles,
+      capabilities,
       email_verified,
       created_at,
       updated_at,
       password_hash,
       phone
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     ON CONFLICT (id) DO UPDATE SET
       email = EXCLUDED.email,
       display_name = EXCLUDED.display_name,
       photo_url = EXCLUDED.photo_url,
       preferences = EXCLUDED.preferences,
       roles = EXCLUDED.roles,
+      capabilities = EXCLUDED.capabilities,
       email_verified = EXCLUDED.email_verified,
       updated_at = EXCLUDED.updated_at,
       password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
@@ -233,6 +237,7 @@ async function upsert(id, data) {
       prepared.photo_url,
       prepared.preferences,
       prepared.roles,
+      prepared.capabilities,
       prepared.email_verified,
       data.createdAt || Date.now(),
       prepared.updated_at,
