@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Globe, Plus, X, Save, Eye, EyeOff } from "lucide-react";
+import { Plus, X, Save, Eye, EyeOff } from "lucide-react";
 import { carrierApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel } from "@/services/carrier";
 
 const CAPACITY_OPTIONS: { value: CapacityType; label: string }[] = [
