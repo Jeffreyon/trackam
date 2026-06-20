@@ -88,7 +88,7 @@ router.post("/api-key", localAuth, asyncHandler(async (req, res) => {
 }));
 
 // POST /api/oli-account/rotate-switch-key — rotate the key on the switch and save the new one locally
-router.post("/rotate-switch-key", localAuth, attachAuthz, requireAdmin, asyncHandler(async (req, res) => {
+router.post("/rotate-switch-key", localAuth, asyncHandler(async (req, res) => {
   // Resolve current key: org-level takes priority (same priority as the proxy)
   const orgConfig = await repo.getOrgConfig();
   const currentKey = orgConfig?.oli_api_key || (await repo.findByUserId(req.user.uid))?.oli_api_key;
