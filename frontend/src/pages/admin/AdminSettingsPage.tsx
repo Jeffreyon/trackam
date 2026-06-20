@@ -2,10 +2,10 @@ import { useSearchParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import {
   Loader2, CheckCircle2, Building2, Fuel, AlertTriangle, Clock, Plug, Wallet, Truck,
-  Phone, Link2, Plus, X, Eye, EyeOff, Users, Pencil, ChevronDown,
+  Phone, Link2, Plus, X, Send, AlertCircle, XCircle, Users, Pencil, ChevronDown,
 } from "lucide-react";
 import { orgSettingsApi, type OrgSettings } from "@/services/admin.api";
-import { carrierApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel } from "@/services/carrier";
+import { carrierApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel, type ReviewStatus } from "@/services/carrier";
 import { COUNTRY_OPTIONS, COUNTRY_PHONE_CONFIGS } from "@/lib/idSchemes";
 import AdminOliPage from "./AdminOliPage";
 import AdminWalletPage from "./AdminWalletPage";
@@ -541,7 +541,7 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
   const [profile, setProfile]                 = useState<CarrierProfile | null>(null);
   const [loading, setLoading]                 = useState(true);
   const [saving, setSaving]                   = useState(false);
-  const [toggling, setToggling]               = useState(false);
+  const [submitting, setSubmitting]            = useState(false);
   const [saved, setSaved]                     = useState(false);
   const [error, setError]                     = useState<string | null>(null);
   const [capacityType, setCapacityType]       = useState<CapacityType>("van");
@@ -602,14 +602,14 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
     finally { setSaving(false); }
   }
 
-  async function handleTogglePublish() {
+  async function handleSubmitForReview() {
     if (!profile) return;
-    setToggling(true);
+    setSubmitting(true);
     try {
-      const updated = await carrierApi.setPublished(!profile.isPublished);
+      const updated = await carrierApi.submitForReview();
       setProfile(updated);
-    } catch { setError("Failed to update visibility."); }
-    finally { setToggling(false); }
+    } catch { setError("Failed to submit for review. Please try again."); }
+    finally { setSubmitting(false); }
   }
 
   if (loading) return <div className="h-64 rounded-xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />;
@@ -621,32 +621,40 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
         title="Carrier network profile"
         description="How your operation appears in the Trackam carrier directory."
       >
-        {/* Publish toggle */}
-        {profile && (
-          <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3 mb-5">
-            <div>
-              <p className="text-xs font-semibold text-stone-300">
-                {profile.isPublished ? "Listed in directory" : "Not listed"}
-              </p>
-              <p className="text-[11px] text-stone-500 mt-0.5">
-                {profile.isPublished ? "Other operators can find and contact you." : "Save your profile first, then publish to go live."}
-              </p>
+        {/* Review status */}
+        {profile && (() => {
+          const REVIEW_CFG: Record<ReviewStatus, { label: string; description: string; cls: string; icon: React.ReactNode }> = {
+            draft:    { label: "Draft",          description: "Save your profile then submit it for review.",              cls: "text-stone-400 bg-white/[0.04] border-white/[0.08]",        icon: <AlertCircle className="h-3.5 w-3.5" /> },
+            pending:  { label: "Pending review", description: "Your profile is under review. We'll notify you shortly.",   cls: "text-yellow-400 bg-yellow-500/[0.07] border-yellow-500/20", icon: <Clock className="h-3.5 w-3.5" /> },
+            approved: { label: "Listed",         description: "Your profile is live in the carrier directory.",            cls: "text-emerald-400 bg-emerald-500/[0.07] border-emerald-500/20", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
+            rejected: { label: "Not approved",   description: "Your profile was not approved. Update it and resubmit.",   cls: "text-red-400 bg-red-500/[0.07] border-red-500/20",           icon: <XCircle className="h-3.5 w-3.5" /> },
+          };
+          const rs = (profile.reviewStatus ?? "draft") as ReviewStatus;
+          const cfg = REVIEW_CFG[rs];
+          const canSubmit = rs === "draft" || rs === "rejected";
+          return (
+            <div className={`flex items-center justify-between rounded-lg border px-4 py-3 mb-5 ${cfg.cls}`}>
+              <div className="flex items-start gap-2.5">
+                <span className="mt-0.5 shrink-0">{cfg.icon}</span>
+                <div>
+                  <p className="text-xs font-semibold">{cfg.label}</p>
+                  <p className="text-[11px] opacity-70 mt-0.5">{cfg.description}</p>
+                </div>
+              </div>
+              {canSubmit && (
+                <button
+                  type="button"
+                  onClick={handleSubmitForReview}
+                  disabled={submitting}
+                  className="shrink-0 flex items-center gap-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500/20 px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ml-3"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  {submitting ? "Submitting…" : "Submit for review"}
+                </button>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={handleTogglePublish}
-              disabled={toggling}
-              className={[
-                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 shrink-0 ml-3",
-                profile.isPublished ? "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20" : "bg-white/[0.06] text-stone-300 hover:bg-white/[0.1]",
-              ].join(" ")}
-            >
-              {profile.isPublished
-                ? <><EyeOff className="h-3.5 w-3.5" /> Unpublish</>
-                : <><Eye className="h-3.5 w-3.5" /> Publish</>}
-            </button>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Capacity type */}
         <div className="mb-4">
