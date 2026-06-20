@@ -68,7 +68,7 @@ export default function AdminWalletPage() {
     pollRef.current = setInterval(async () => {
       attempts++;
       const txns = await walletApi.transactions().catch(() => []);
-      if (txns.some((t: { reference: string }) => t.reference === ref) || attempts >= 10) {
+      if (txns.some((t) => t.reference === ref) || attempts >= 10) {
         settle();
       }
     }, 2000);
