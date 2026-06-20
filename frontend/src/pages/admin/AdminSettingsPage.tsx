@@ -254,7 +254,7 @@ function SectionCard({ icon, title, description, children }: {
   icon: React.ReactNode; title: string; description: string; children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-white/[0.06] bg-white/[0.03] overflow-hidden">
+    <section className="rounded-xl border border-white/[0.06] bg-white/[0.03]">
       <header className="flex items-start gap-3 px-5 py-4 border-b border-white/[0.06]">
         <div className="h-8 w-8 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0">{icon}</div>
         <div className="min-w-0">
