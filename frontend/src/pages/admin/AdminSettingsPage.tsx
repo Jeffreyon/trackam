@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   Loader2, CheckCircle2, Building2, Fuel, AlertTriangle, Clock, Plug, Wallet, Truck,
   Phone, Link2, Plus, X, Send, AlertCircle, XCircle, Users, Pencil, ChevronDown, MapPin, Trash2,
+  ArrowRight,
 } from "lucide-react";
+import { searchCities } from "@/lib/nigerianCities";
 import { orgSettingsApi, type OrgSettings } from "@/services/admin.api";
 import { carrierApi, carrierRoutesApi, type CarrierProfile, type CarrierProfileInput, type CarrierRoute, type ServiceArea, type CapacityType, type PricingModel, type ReviewStatus } from "@/services/carrier";
 import { formatNairaRaw } from "@/lib/format";
@@ -765,40 +767,119 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
   );
 }
 
+// ── City autocomplete ─────────────────────────────────────────────────────────
+
+function CityAutocomplete({ value, onChange, placeholder, id }: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  id?: string;
+}) {
+  const [open, setOpen]       = useState(false);
+  const [results, setResults] = useState<{ city: string; state: string }[]>([]);
+  const containerRef          = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, []);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value;
+    onChange(v);
+    const hits = searchCities(v);
+    setResults(hits);
+    setOpen(hits.length > 0);
+  }
+
+  function select(city: string) {
+    onChange(city);
+    setResults([]);
+    setOpen(false);
+  }
+
+  const inCls = "w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-10 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors";
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        id={id}
+        type="text"
+        autoComplete="off"
+        value={value}
+        placeholder={placeholder}
+        onChange={handleChange}
+        onFocus={() => { const hits = searchCities(value); setResults(hits); setOpen(hits.length > 0); }}
+        className={inCls}
+      />
+      {open && results.length > 0 && (
+        <div className="absolute z-[60] top-full left-0 right-0 mt-1 rounded-lg border border-white/[0.08] bg-[#0c1828] shadow-2xl overflow-hidden max-h-44 overflow-y-auto">
+          {results.map(({ city, state }) => (
+            <button
+              key={`${city}-${state}`}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); select(city); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-white/[0.05] transition-colors"
+            >
+              <span className="font-medium text-stone-200">{city}</span>
+              <span className="text-stone-600">{state}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Carrier routes sub-component ─────────────────────────────────────────────
+
+const EMPTY_ROUTE_FORM = { originCity: "", destCity: "", distanceKm: "", fixedPriceNgn: "", label: "" };
 
 function CarrierRoutes({ pricingModel }: { pricingModel: PricingModel }) {
   const [routes, setRoutes]     = useState<CarrierRoute[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm]         = useState({ originCity: "", destCity: "", distanceKm: "", fixedPriceNgn: "", label: "" });
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm]           = useState(EMPTY_ROUTE_FORM);
   const [submitting, setSubmitting] = useState(false);
-  const [err, setErr]           = useState("");
+  const [err, setErr]             = useState("");
 
   function load() {
     carrierRoutesApi.list().then(setRoutes).finally(() => setLoading(false));
   }
   useEffect(() => { load(); }, []);
 
-  const setF = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm(f => ({ ...f, [k]: e.target.value }));
+  function openModal() {
+    setForm(EMPTY_ROUTE_FORM);
+    setErr("");
+    setShowModal(true);
+  }
+
+  function closeModal() {
+    setShowModal(false);
+    setErr("");
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.originCity.trim() || !form.destCity.trim()) { setErr("Origin and destination are required."); return; }
+    if (!form.originCity.trim() || !form.destCity.trim()) {
+      setErr("Origin and destination are required.");
+      return;
+    }
     setSubmitting(true); setErr("");
     try {
       await carrierRoutesApi.add({
         originCity:     form.originCity.trim(),
         destCity:       form.destCity.trim(),
-        distanceKm:     form.distanceKm    ? parseFloat(form.distanceKm)                   : null,
+        distanceKm:     form.distanceKm    ? parseFloat(form.distanceKm)                       : null,
         fixedPriceKobo: form.fixedPriceNgn ? Math.round(parseFloat(form.fixedPriceNgn) * 100) : null,
         label:          form.label.trim() || null,
       });
-      setForm({ originCity: "", destCity: "", distanceKm: "", fixedPriceNgn: "", label: "" });
-      setShowForm(false);
+      closeModal();
       load();
-    } catch { setErr("Failed to add route."); }
+    } catch { setErr("Failed to add route. Please try again."); }
     finally { setSubmitting(false); }
   }
 
@@ -807,78 +888,193 @@ function CarrierRoutes({ pricingModel }: { pricingModel: PricingModel }) {
     load();
   }
 
-  const inCls = "flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors";
+  const fieldCls = "mb-4";
+  const fieldLabel = "block text-xs font-medium text-stone-300 mb-1.5";
 
   return (
-    <div className="mb-4">
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-1.5">
-          <MapPin className="h-3.5 w-3.5 text-stone-500" />
-          <label className={labelCls} style={{ margin: 0 }}>Routes</label>
+    <>
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5 text-stone-500" />
+            <label className={labelCls} style={{ margin: 0 }}>Routes</label>
+          </div>
+          <button
+            type="button"
+            onClick={openModal}
+            className="flex items-center gap-1 text-xs text-stone-500 hover:text-orange-400 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add route
+          </button>
         </div>
-        <button type="button" onClick={() => setShowForm(s => !s)}
-          className="flex items-center gap-1 text-xs text-stone-500 hover:text-orange-400 transition-colors">
-          <Plus className="h-3.5 w-3.5" /> Add route
-        </button>
-      </div>
-      <p className={hintCls}>Define the lanes you cover. Bookings are matched to you by origin+destination city.</p>
+        <p className={hintCls}>Define the lanes you cover. Bookings are matched to you by origin + destination city.</p>
 
-      {loading ? (
-        <div className="h-8 rounded-lg bg-white/[0.03] animate-pulse" />
-      ) : routes.length === 0 ? (
-        <p className="text-xs text-stone-600 italic py-1">No routes yet.</p>
-      ) : (
-        <div className="space-y-1.5 mb-2">
-          {routes.map(r => {
-            const fixedNgn = r.fixedPriceKobo != null ? r.fixedPriceKobo / 100 : null;
-            return (
-              <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/[0.03] border border-white/[0.05] px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-stone-200">{r.label || `${r.originCity} → ${r.destCity}`}</p>
-                  <p className="text-[11px] text-stone-500">
-                    {r.label && <span className="mr-2">{r.originCity} → {r.destCity}</span>}
-                    {r.distanceKm != null && <span>{r.distanceKm} km</span>}
-                    {fixedNgn != null && <span className="ml-2 text-orange-400/80">{formatNairaRaw(fixedNgn)} fixed</span>}
-                    {fixedNgn == null && pricingModel === "per_km" && r.distanceKm != null && (
-                      <span className="ml-2 text-stone-600">(per-km rate applies)</span>
-                    )}
-                  </p>
+        {loading ? (
+          <div className="h-8 rounded-lg bg-white/[0.03] animate-pulse" />
+        ) : routes.length === 0 ? (
+          <p className="text-xs text-stone-600 italic py-1">No routes yet. Add your first route to start receiving bookings.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {routes.map((r) => {
+              const fixedNgn = r.fixedPriceKobo != null ? r.fixedPriceKobo / 100 : null;
+              return (
+                <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/[0.03] border border-white/[0.05] px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-stone-200">{r.label || `${r.originCity} → ${r.destCity}`}</p>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      {r.label && <span className="mr-2">{r.originCity} → {r.destCity}</span>}
+                      {r.distanceKm != null && <span>{r.distanceKm} km</span>}
+                      {fixedNgn != null && (
+                        <span className="ml-2 text-orange-400/80">{formatNairaRaw(fixedNgn)} fixed</span>
+                      )}
+                      {fixedNgn == null && pricingModel === "per_km" && r.distanceKm != null && (
+                        <span className="ml-2 text-stone-600">(per-km rate applies)</span>
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(r.id)}
+                    className="ml-3 shrink-0 text-stone-600 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <button type="button" onClick={() => handleRemove(r.id)}
-                  className="ml-3 shrink-0 text-stone-600 hover:text-red-400 transition-colors">
-                  <Trash2 className="h-3.5 w-3.5" />
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Add route modal ──────────────────────────────────────────── */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeModal} />
+          <div className="relative w-full max-w-md rounded-xl bg-[#0c1522] border border-white/[0.08] shadow-2xl shadow-black/50 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                  <MapPin className="h-3.5 w-3.5 text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Add route</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5">Define an origin → destination lane</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="text-stone-600 hover:text-stone-300 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAdd} className="p-5">
+              {/* Cities row */}
+              <div className={fieldCls}>
+                <label className={fieldLabel}>Route</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <CityAutocomplete
+                      id="route-origin"
+                      value={form.originCity}
+                      onChange={(v) => setForm((f) => ({ ...f, originCity: v }))}
+                      placeholder="Origin city"
+                    />
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-stone-600 shrink-0" />
+                  <div className="flex-1">
+                    <CityAutocomplete
+                      id="route-dest"
+                      value={form.destCity}
+                      onChange={(v) => setForm((f) => ({ ...f, destCity: v }))}
+                      placeholder="Destination city"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Distance + price */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label htmlFor="route-km" className={fieldLabel}>
+                    Distance <span className="text-stone-600 font-normal">(km)</span>
+                  </label>
+                  <input
+                    id="route-km"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="e.g. 540"
+                    value={form.distanceKm}
+                    onChange={(e) => setForm((f) => ({ ...f, distanceKm: e.target.value }))}
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-10 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                  />
+                  <p className="text-[10px] text-stone-600 mt-1">Overrides booking distance.</p>
+                </div>
+                <div>
+                  <label htmlFor="route-price" className={fieldLabel}>
+                    Fixed price <span className="text-stone-600 font-normal">(₦, optional)</span>
+                  </label>
+                  <input
+                    id="route-price"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="e.g. 25000"
+                    value={form.fixedPriceNgn}
+                    onChange={(e) => setForm((f) => ({ ...f, fixedPriceNgn: e.target.value }))}
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-10 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                  />
+                  <p className="text-[10px] text-stone-600 mt-1">Overrides per-km rate.</p>
+                </div>
+              </div>
+
+              {/* Label */}
+              <div className={fieldCls}>
+                <label htmlFor="route-label" className={fieldLabel}>
+                  Label <span className="text-stone-600 font-normal">(optional)</span>
+                </label>
+                <input
+                  id="route-label"
+                  type="text"
+                  placeholder="e.g. Lagos → Abuja Express"
+                  value={form.label}
+                  onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+                  className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-10 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                />
+              </div>
+
+              {err && (
+                <p className="flex items-center gap-1.5 text-xs text-red-400 bg-red-500/[0.08] border border-red-500/20 rounded-lg px-3 py-2 mb-4">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {err}
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 h-10 text-xs text-stone-400 hover:text-white hover:bg-white/[0.06] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 h-10 text-xs font-semibold text-white shadow-sm shadow-orange-500/20 hover:shadow-orange-500/30 disabled:opacity-60 transition-all"
+                >
+                  {submitting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Adding…</> : "Add route"}
                 </button>
               </div>
-            );
-          })}
+            </form>
+          </div>
         </div>
       )}
-
-      {showForm && (
-        <form onSubmit={handleAdd} className="space-y-2 pt-2 mt-2 border-t border-white/[0.06]">
-          <div className="flex gap-2">
-            <input type="text" placeholder="Origin city" value={form.originCity} onChange={setF("originCity")} className={inCls} />
-            <input type="text" placeholder="Destination city" value={form.destCity} onChange={setF("destCity")} className={inCls} />
-          </div>
-          <div className="flex gap-2">
-            <input type="number" min="0" step="0.1" placeholder="Distance (km)" value={form.distanceKm} onChange={setF("distanceKm")} className={inCls} />
-            <input type="number" min="0" step="0.01" placeholder="Fixed price ₦ (optional)" value={form.fixedPriceNgn} onChange={setF("fixedPriceNgn")} className={inCls} />
-          </div>
-          <input type="text" placeholder="Label, e.g. Lagos → Abuja Express (optional)" value={form.label} onChange={setF("label")} className={`${inCls} w-full flex-none`} />
-          {err && <p className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{err}</p>}
-          <div className="flex gap-2">
-            <button type="submit" disabled={submitting}
-              className="flex-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 h-8 text-xs font-medium hover:bg-orange-500/20 transition-colors disabled:opacity-50">
-              {submitting ? "Adding…" : "Add route"}
-            </button>
-            <button type="button" onClick={() => { setShowForm(false); setErr(""); }}
-              className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 h-8 text-xs text-stone-400 hover:text-white transition-colors">
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
+    </>
   );
 }
 
