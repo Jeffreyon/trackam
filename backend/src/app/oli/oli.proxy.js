@@ -23,36 +23,13 @@ const KEY_CACHE_TTL_MS = 60_000;
  * Resolve the OLI API key for this request.
  *
  * Priority order:
- *   1. Per-user key (oli_accounts) — each user maps to their own switch operator
+ *   1. Org-level key (org_oli_config) — single-operator instance, all users share it
  *   2. Env var OLI_API_KEY — simple single-operator deployments
- *   3. Org-level key (org_oli_config) — commercial single-operator deployments
+ *   3. Per-user key (oli_accounts) — open-source / legacy
  *   4. First active key in oli_accounts — unauthenticated fallback
- *
- * Per-user key is checked first so that multi-operator instances work correctly:
- * different users can hold different OLI API keys and see their own waybills.
  */
 async function _resolveApiKey(userId) {
-  // 1. Per-user key — takes priority
-  if (userId) {
-    const cached = _keyCache.get(userId);
-    if (cached && cached.expiresAt > Date.now()) {
-      if (cached.key) return cached.key;
-    } else {
-      try {
-        const account = await oliAccountRepo.findByUserId(userId);
-        const key = account?.oli_api_key || "";
-        _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
-        if (key) return key;
-      } catch {
-        // Fall through
-      }
-    }
-  }
-
-  // 2. Env var
-  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
-
-  // 3. Org-level key — shared fallback for single-operator deployments
+  // 1. Org-level key — shared by all users on this instance
   const orgCached = _keyCache.get("__org__");
   if (orgCached && orgCached.expiresAt > Date.now()) {
     if (orgCached.key) return orgCached.key;
@@ -61,6 +38,23 @@ async function _resolveApiKey(userId) {
       const orgKey = await oliAccountRepo.getOrgApiKey();
       _keyCache.set("__org__", { key: orgKey, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
       if (orgKey) return orgKey;
+    } catch {
+      // Fall through
+    }
+  }
+
+  // 2. Env var
+  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
+
+  // 3. Per-user key (legacy / open-source)
+  if (userId) {
+    const cached = _keyCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) return cached.key;
+    try {
+      const account = await oliAccountRepo.findByUserId(userId);
+      const key = account?.oli_api_key || "";
+      _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
+      if (key) return key;
     } catch {
       // Fall through
     }

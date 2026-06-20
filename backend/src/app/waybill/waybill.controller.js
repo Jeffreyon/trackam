@@ -32,27 +32,7 @@ const _keyCache = new Map();
 const KEY_CACHE_TTL_MS = 60_000;
 
 async function _resolveApiKey(userId) {
-  // 1. Per-user key — takes priority so multi-operator instances work correctly.
-  //    Each user can configure their own OLI API key in Settings; that key maps
-  //    to their specific operator on the switch.
-  if (userId) {
-    const cached = _keyCache.get(userId);
-    if (cached && cached.expiresAt > Date.now()) {
-      if (cached.key) return cached.key;
-    } else {
-      try {
-        const account = await oliAccountRepo.findByUserId(userId);
-        const key = account?.oli_api_key || "";
-        _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
-        if (key) return key;
-      } catch { /* fall through */ }
-    }
-  }
-
-  // 2. Env var (single-operator instance default)
-  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
-
-  // 3. Org-level key (commercial single-operator deployment)
+  // 1. Org-level key (commercial)
   const orgCached = _keyCache.get("__org__");
   if (orgCached && orgCached.expiresAt > Date.now()) {
     if (orgCached.key) return orgCached.key;
@@ -61,6 +41,21 @@ async function _resolveApiKey(userId) {
       const orgKey = await oliAccountRepo.getOrgApiKey();
       _keyCache.set("__org__", { key: orgKey, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
       if (orgKey) return orgKey;
+    } catch { /* fall through */ }
+  }
+
+  // 2. Env var
+  if (OLI_API_KEY_ENV) return OLI_API_KEY_ENV;
+
+  // 3. Per-user key (legacy / open-source)
+  if (userId) {
+    const cached = _keyCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) return cached.key;
+    try {
+      const account = await oliAccountRepo.findByUserId(userId);
+      const key = account?.oli_api_key || "";
+      _keyCache.set(userId, { key, expiresAt: Date.now() + KEY_CACHE_TTL_MS });
+      if (key) return key;
     } catch { /* fall through */ }
   }
 

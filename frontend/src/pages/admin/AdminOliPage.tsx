@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Loader2, CheckCircle2, Key, Plug, RefreshCw, AlertCircle, Clock, Copy, Check,
+  Loader2, CheckCircle2, Key, Plug, RefreshCw, AlertCircle, Clock, Copy, Check, Unlink,
 } from "lucide-react";
 import { orgOliApi, type OrgOliStatus } from "@/services/admin.api";
 import { triggerWalletRefresh } from "@/components/layout/WalletWidget";
@@ -21,6 +21,8 @@ export default function AdminOliPage() {
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [rotating, setRotating] = useState(false);
   const [rotated, setRotated] = useState(false);
+  const [confirmUnlink, setConfirmUnlink] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
   const [copied, setCopied] = useState(false);
 
   function handleCopyId() {
@@ -75,6 +77,19 @@ export default function AdminOliPage() {
       // handled inline
     } finally {
       setRotating(false);
+    }
+  }
+
+  async function handleUnlink() {
+    setUnlinking(true);
+    try {
+      const updated = await orgOliApi.clearKey();
+      setStatus(updated);
+      setConfirmUnlink(false);
+    } catch {
+      // handled inline
+    } finally {
+      setUnlinking(false);
     }
   }
 
@@ -174,7 +189,55 @@ export default function AdminOliPage() {
                   <RefreshCw className="h-3.5 w-3.5" /> Rotate
                 </button>
               </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-stone-300">Unlink API key</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5 max-w-md">
+                    Removes the stored key from this instance so you can enter a different one. Does not affect the OLI Switch.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmUnlink(true)}
+                  className="shrink-0 ml-3 inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] hover:border-amber-500/30 hover:text-amber-300 px-3 h-9 text-xs font-medium text-stone-300 transition-all"
+                >
+                  <Unlink className="h-3.5 w-3.5" /> Unlink
+                </button>
+              </div>
             </>
+          )}
+
+          {connected && confirmUnlink && (
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-4 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-300">Unlink organisation API key?</p>
+                  <p className="text-xs text-amber-400/80 mt-1 leading-relaxed">
+                    The key is removed from this instance only. Your operator account on the OLI Switch is unaffected — you can reconnect with the correct key at any time.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleUnlink}
+                  disabled={unlinking}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-3.5 h-9 text-xs font-semibold disabled:opacity-60 transition-colors"
+                >
+                  {unlinking ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Unlinking...</> : <><Unlink className="h-3.5 w-3.5" /> Yes, unlink</>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmUnlink(false)}
+                  disabled={unlinking}
+                  className="inline-flex items-center rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] px-3.5 h-9 text-xs font-medium text-stone-400 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
 
           {connected && confirmRotate && (
