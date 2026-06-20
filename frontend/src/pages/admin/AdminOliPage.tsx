@@ -83,7 +83,7 @@ export default function AdminOliPage() {
   async function handleUnlink() {
     setUnlinking(true);
     try {
-      const updated = await orgOliApi.clearKey();
+      const updated = await orgOliApi.rotateApiKey();
       setStatus(updated);
       setConfirmUnlink(false);
     } catch {
