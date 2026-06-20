@@ -10,8 +10,6 @@ import {
   Activity,
   ShieldCheck,
   Settings,
-  Plug,
-  Wallet,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -46,8 +44,6 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     label: "Organisation",
     items: [
       { to: "/admin/dashboard/settings", label: "Settings", icon: Settings, end: false },
-      { to: "/admin/dashboard/oli",      label: "Network",  icon: Plug,     end: false },
-      { to: "/admin/dashboard/wallet",   label: "Wallet",   icon: Wallet,   end: false },
     ],
   },
 ];
@@ -59,9 +55,7 @@ const PAGE_TITLES: Record<string, { title: string; description: string }> = {
   "/admin/dashboard/events":   { title: "Events",         description: "Recent system events." },
   "/admin/dashboard/riders":                 { title: "Riders",                description: "Add, edit, and remove riders from your dispatch roster." },
   "/admin/dashboard/identity-verifications": { title: "Identity Verifications", description: "Approve or reject IDs submitted by riders and staff during onboarding." },
-  "/admin/dashboard/settings": { title: "Organisation Settings", description: "Business name, fuel pricing, and alerts — shared across all operators." },
-  "/admin/dashboard/oli":      { title: "Network Connection",    description: "Connect your organisation to the OLI custody network." },
-  "/admin/dashboard/wallet":   { title: "Organisation Wallet",   description: "Credits fund handovers, claims, and custody operations on the OLI network." },
+  "/admin/dashboard/settings": { title: "Settings", description: "Organisation, network, wallet, and carrier profile settings." },
 };
 
 function SidebarContent({

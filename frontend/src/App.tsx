@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import LandingPage from "@/pages/LandingPage";
 import ScanPage from "@/pages/ScanPage";
 import WaybillGeneratorPage from "@/pages/WaybillGeneratorPage";
@@ -23,8 +23,6 @@ import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminEventsPage from "@/pages/admin/AdminEventsPage";
 import AdminRolesPage from "@/pages/admin/AdminRolesPage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
-import AdminOliPage from "@/pages/admin/AdminOliPage";
-import AdminWalletPage from "@/pages/admin/AdminWalletPage";
 import AdminIdentityVerificationPage from "@/pages/admin/AdminIdentityVerificationPage";
 import AdminRidersPage from "@/pages/admin/AdminRidersPage";
 import CarrierDirectoryPage from "@/pages/network/CarrierDirectoryPage";
@@ -91,8 +89,8 @@ const router = createBrowserRouter([
       { path: "events", element: <AdminEventsPage /> },
       { path: "roles", element: <AdminRolesPage /> },
       { path: "settings", element: <AdminSettingsPage /> },
-      { path: "oli", element: <AdminOliPage /> },
-      { path: "wallet", element: <AdminWalletPage /> },
+      { path: "oli",    element: <Navigate to="/admin/dashboard/settings?tab=network" replace /> },
+      { path: "wallet", element: <Navigate to="/admin/dashboard/settings?tab=wallet"  replace /> },
       { path: "riders", element: <AdminRidersPage /> },
       { path: "identity-verifications", element: <AdminIdentityVerificationPage /> },
     ],

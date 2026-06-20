@@ -43,7 +43,7 @@ export default function AdminWalletPage() {
   useEffect(() => {
     const ref = searchParams.get("reference");
     if (!ref) return;
-    setSearchParams({}, { replace: true });
+    setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete("reference"); return next; }, { replace: true });
     setPaymentPending(true);
     triggerWalletRefresh();
 
