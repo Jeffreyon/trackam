@@ -9,6 +9,23 @@ const localAuth = require("../../core/middlewares/localAuth");
 const { attachAuthz, requireAdmin } = require("../../core/middlewares/authz");
 const asyncHandler = require("../../core/middlewares/asyncHandler");
 const { query } = require("../../core/db/postgres");
+const oliAccountRepo = require("../oli/oli.account.repository");
+
+async function pushBusinessIdentityToSwitch(businessName, businessCity) {
+  try {
+    const switchUrl = (process.env.OLI_SWITCH_URL || "http://localhost:5000").replace(/\/$/, "");
+    const orgKey = await oliAccountRepo.getOrgApiKey();
+    const apiKey = orgKey || process.env.OLI_API_KEY || "";
+    if (!apiKey) return;
+    await fetch(`${switchUrl}/api/operators/me/carrier-profile/business-identity`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-oli-api-key": apiKey },
+      body: JSON.stringify({ businessName, businessCity }),
+    });
+  } catch {
+    // Non-fatal — carrier profile may not exist yet
+  }
+}
 
 router.use(localAuth, attachAuthz, requireAdmin);
 
@@ -89,6 +106,14 @@ router.patch("/", asyncHandler(async (req, res) => {
   );
   const settings = {};
   for (const row of result.rows) settings[row.key] = row.value;
+
+  if (updates.business_name !== undefined || updates.business_city !== undefined) {
+    pushBusinessIdentityToSwitch(
+      updates.business_name ?? settings.business_name ?? null,
+      updates.business_city ?? settings.business_city ?? null,
+    );
+  }
+
   res.json(settings);
 }));
 
