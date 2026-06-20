@@ -356,7 +356,7 @@ export default function CarrierProfilePage() {
 
   const [capacityType, setCapacityType] = useState<CapacityType>("van");
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([{ ...EMPTY_AREA }]);
-  const [pricingModel, setPricingModel] = useState<PricingModel>("quoted");
+  const [pricingModel, setPricingModel] = useState<PricingModel>("per_shipment");
   const [baseRate, setBaseRate] = useState("");
   const [currency, setCurrency] = useState("NGN");
   const [bio, setBio] = useState("");
@@ -367,7 +367,7 @@ export default function CarrierProfilePage() {
         setProfile(p);
         setCapacityType(p.capacityType);
         setServiceAreas(p.serviceAreas.length > 0 ? p.serviceAreas : [{ ...EMPTY_AREA }]);
-        setPricingModel(p.pricingModel);
+        setPricingModel(p.pricingModel === "quoted" ? "per_shipment" : p.pricingModel);
         setBaseRate(p.baseRate > 0 ? String(p.baseRate / 100) : "");
         setCurrency(p.currency);
         setBio(p.bio || "");
@@ -519,7 +519,7 @@ export default function CarrierProfilePage() {
         {/* Pricing */}
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3">
           <label className="text-sm font-medium text-stone-300">Pricing</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {PRICING_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
