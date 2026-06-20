@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Loader2, CheckCircle2, Key, Plug, RefreshCw, AlertCircle, Clock, Copy, Check, Unlink,
+  Loader2, CheckCircle2, Key, Plug, AlertCircle, Clock, Copy, Check, Unlink,
 } from "lucide-react";
 import { orgOliApi, type OrgOliStatus } from "@/services/admin.api";
 import { triggerWalletRefresh } from "@/components/layout/WalletWidget";
@@ -18,9 +18,6 @@ export default function AdminOliPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [confirmRotate, setConfirmRotate] = useState(false);
-  const [rotating, setRotating] = useState(false);
-  const [rotated, setRotated] = useState(false);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -61,22 +58,6 @@ export default function AdminOliPage() {
       setError(msg || "Failed to save API key.");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleRotate() {
-    setRotating(true);
-    try {
-      const updated = await orgOliApi.rotateSwitchKey();
-      setStatus(updated);
-      triggerWalletRefresh();
-      setConfirmRotate(false);
-      setRotated(true);
-      setTimeout(() => setRotated(false), 4000);
-    } catch {
-      // handled inline
-    } finally {
-      setRotating(false);
     }
   }
 
@@ -168,28 +149,6 @@ export default function AdminOliPage() {
                 </div>
               )}
 
-              {rotated && (
-                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 text-xs text-emerald-300">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                  Key rotated on the OLI network and saved. New key emailed to you.
-                </div>
-              )}
-              <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-stone-300">Rotate API key</p>
-                  <p className="text-[11px] text-stone-500 mt-0.5 max-w-md">
-                    Generates a new key on the OLI Switch and saves it here automatically.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setConfirmRotate(true)}
-                  className="shrink-0 ml-3 inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] hover:border-red-500/30 hover:text-red-300 px-3 h-9 text-xs font-medium text-stone-300 transition-all"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> Rotate
-                </button>
-              </div>
-
               <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-stone-300">Unlink API key</p>
@@ -232,38 +191,6 @@ export default function AdminOliPage() {
                   type="button"
                   onClick={() => setConfirmUnlink(false)}
                   disabled={unlinking}
-                  className="inline-flex items-center rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] px-3.5 h-9 text-xs font-medium text-stone-400 transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {connected && confirmRotate && (
-            <div className="rounded-lg border border-red-500/25 bg-red-500/[0.06] p-4 space-y-3">
-              <div className="flex items-start gap-2.5">
-                <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-red-300">Rotate organisation API key?</p>
-                  <p className="text-xs text-red-400/80 mt-1 leading-relaxed">
-                    A new key is issued on the OLI Switch, your old key is immediately invalidated, and the new key is saved here automatically.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleRotate}
-                  disabled={rotating}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3.5 h-9 text-xs font-semibold disabled:opacity-60 transition-colors"
-                >
-                  {rotating ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Rotating...</> : <><RefreshCw className="h-3.5 w-3.5" /> Yes, rotate</>}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmRotate(false)}
-                  disabled={rotating}
                   className="inline-flex items-center rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] px-3.5 h-9 text-xs font-medium text-stone-400 transition-all"
                 >
                   Cancel
