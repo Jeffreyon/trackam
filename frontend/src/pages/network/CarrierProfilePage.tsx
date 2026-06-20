@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus, X, Save, Eye, EyeOff, Package, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
-import { carrierApi, networkBookingApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel, type NetworkBooking } from "@/services/carrier";
+import { Plus, X, Save, Send, Package, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { carrierApi, networkBookingApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel, type NetworkBooking, type ReviewStatus } from "@/services/carrier";
 
 const CAPACITY_OPTIONS: { value: CapacityType; label: string }[] = [
   { value: "motorcycle", label: "Motorcycle" },
@@ -193,11 +193,18 @@ function IncomingBookings() {
   );
 }
 
+const REVIEW_STATUS_CONFIG: Record<ReviewStatus, { label: string; description: string; cls: string; icon: React.ReactNode }> = {
+  draft:    { label: "Draft",          description: "Save your profile then submit it for review.",                cls: "text-stone-400 bg-white/[0.05] border-white/[0.08]",       icon: <AlertCircle className="h-4 w-4" /> },
+  pending:  { label: "Pending review", description: "Your profile is under review. We'll notify you shortly.",   cls: "text-yellow-400 bg-yellow-500/[0.08] border-yellow-500/20", icon: <Clock className="h-4 w-4" /> },
+  approved: { label: "Listed",         description: "Your profile is live in the carrier directory.",             cls: "text-emerald-400 bg-emerald-500/[0.08] border-emerald-500/20", icon: <CheckCircle2 className="h-4 w-4" /> },
+  rejected: { label: "Not approved",   description: "Your profile was not approved. Update it and resubmit.",    cls: "text-red-400 bg-red-500/[0.08] border-red-500/20",           icon: <XCircle className="h-4 w-4" /> },
+};
+
 export default function CarrierProfilePage() {
   const [profile, setProfile] = useState<CarrierProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [toggling, setToggling] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -255,16 +262,16 @@ export default function CarrierProfilePage() {
     }
   }
 
-  async function handleTogglePublish() {
+  async function handleSubmitForReview() {
     if (!profile) return;
-    setToggling(true);
+    setSubmitting(true);
     try {
-      const updated = await carrierApi.setPublished(!profile.isPublished);
+      const updated = await carrierApi.submitForReview();
       setProfile(updated);
     } catch {
-      setError("Failed to update visibility.");
+      setError("Failed to submit for review. Please try again.");
     } finally {
-      setToggling(false);
+      setSubmitting(false);
     }
   }
 
@@ -289,37 +296,33 @@ export default function CarrierProfilePage() {
         </p>
       </div>
 
-      {/* Publish toggle */}
-      {profile && (
-        <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-          <div>
-            <p className="text-sm font-medium text-white">
-              {profile.isPublished ? "Listed in directory" : "Not listed"}
-            </p>
-            <p className="text-xs text-stone-500">
-              {profile.isPublished
-                ? "Other operators can find and contact you."
-                : "Save your profile first, then publish to go live."}
-            </p>
-          </div>
-          <button
-            onClick={handleTogglePublish}
-            disabled={toggling}
-            className={[
-              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50",
-              profile.isPublished
-                ? "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20"
-                : "bg-white/[0.06] text-stone-300 hover:bg-white/[0.1]",
-            ].join(" ")}
-          >
-            {profile.isPublished ? (
-              <><EyeOff className="h-3.5 w-3.5" /> Unpublish</>
-            ) : (
-              <><Eye className="h-3.5 w-3.5" /> Publish</>
+      {/* Review status */}
+      {profile && (() => {
+        const rs = profile.reviewStatus ?? "draft";
+        const cfg = REVIEW_STATUS_CONFIG[rs];
+        const canSubmit = rs === "draft" || rs === "rejected";
+        return (
+          <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${cfg.cls}`}>
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 shrink-0">{cfg.icon}</span>
+              <div>
+                <p className="text-sm font-medium">{cfg.label}</p>
+                <p className="text-xs opacity-70 mt-0.5">{cfg.description}</p>
+              </div>
+            </div>
+            {canSubmit && (
+              <button
+                onClick={handleSubmitForReview}
+                disabled={submitting}
+                className="shrink-0 flex items-center gap-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500/20 px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ml-4"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {submitting ? "Submitting…" : "Submit for review"}
+              </button>
             )}
-          </button>
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       <form onSubmit={handleSave} className="space-y-5">
         {/* Capacity type */}

@@ -9,6 +9,8 @@ export type ServiceArea = {
   country: string;
 };
 
+export type ReviewStatus = "draft" | "pending" | "approved" | "rejected";
+
 export type CarrierProfile = {
   operatorId: string;
   capacityType: CapacityType;
@@ -21,6 +23,7 @@ export type CarrierProfile = {
   specializations: string[];
   logoUrl: string | null;
   isPublished: boolean;
+  reviewStatus: ReviewStatus;
   updatedAt: string;
 };
 
@@ -154,9 +157,9 @@ export const carrierApi = {
       .put<CarrierProfile>("/api/operators/me/carrier-profile", data)
       .then((r) => r.data),
 
-  setPublished: (published: boolean): Promise<CarrierProfile> =>
+  submitForReview: (): Promise<CarrierProfile> =>
     apiClient
-      .patch<CarrierProfile>("/api/operators/me/carrier-profile/publish", { published })
+      .patch<CarrierProfile>("/api/operators/me/carrier-profile/publish", {})
       .then((r) => r.data),
 
   getDirectory: (): Promise<CarrierDirectoryEntry[]> =>
