@@ -49,16 +49,24 @@ function countryCurrency(code: string): string {
   return COUNTRY_CURRENCY[code] ?? "USD";
 }
 
-// Flag image via flagcdn.com (works on Windows 10 which doesn't render emoji flags)
-function FlagImg({ code, className }: { code: string; className?: string }) {
+// Flag image — matches PhoneInput's CountryFlag: SVG from flagcdn.com, same size + shadow
+function FlagImg({ code }: { code: string }) {
+  const [errored, setErrored] = useState(false);
+  const name = COUNTRY_PHONE_CONFIGS[code]?.name ?? code.toUpperCase();
+  const fallback = COUNTRY_PHONE_CONFIGS[code]?.flag ?? "";
+
+  if (errored) {
+    return <span className="text-base leading-none shrink-0" aria-label={name}>{fallback}</span>;
+  }
+
   return (
     <img
-      src={`https://flagcdn.com/20x15/${code.toLowerCase()}.png`}
-      srcSet={`https://flagcdn.com/40x30/${code.toLowerCase()}.png 2x`}
+      src={`https://flagcdn.com/${code.toLowerCase()}.svg`}
+      alt={name}
       width={20}
-      height={15}
-      alt={code.toUpperCase()}
-      className={`rounded-[2px] object-cover shrink-0 ${className ?? ""}`}
+      height={14}
+      onError={() => setErrored(true)}
+      className="h-3.5 w-5 object-cover rounded-[2px] shadow-[0_0_0_1px_rgba(255,255,255,0.08)] shrink-0"
     />
   );
 }
