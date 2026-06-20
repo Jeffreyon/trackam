@@ -184,8 +184,9 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
         packages:    [pkg],
         currency:    "NGN",
       });
-      setRates(result);
-      if (result.length === 0) setRatesError("No carriers found for this route. Try different cities or check back later.");
+      const safeRates = Array.isArray(result) ? result : [];
+      setRates(safeRates);
+      if (safeRates.length === 0) setRatesError("No carriers found for this route. Try different cities or check back later.");
       setStep("rates");
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Could not fetch rates. Check your OLI connection.";
