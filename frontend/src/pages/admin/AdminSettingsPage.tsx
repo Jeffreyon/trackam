@@ -2,7 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   Loader2, CheckCircle2, Building2, Fuel, AlertTriangle, Clock, Plug, Wallet, Truck,
-  Globe, Phone, Link, Image, Plus, X, Save, Eye, EyeOff, Users,
+  Globe, Phone, Link, Image, Plus, X, Eye, EyeOff, Users,
 } from "lucide-react";
 import { orgSettingsApi, type OrgSettings } from "@/services/admin.api";
 import { carrierApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel } from "@/services/carrier";
