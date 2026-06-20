@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
-import { Loader2, Package, MapPin, ArrowRight, CheckCircle2, Clock, XCircle, Truck, AlertCircle } from "lucide-react";
+import { Loader2, Package, MapPin, ArrowRight, CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
 import { networkBookingApi, type NetworkBooking, type NetworkBookingStatus } from "@/services/carrier";
 
 const STATUS_CFG: Record<NetworkBookingStatus, { label: string; cls: string; icon: typeof Clock }> = {
-  pending:    { label: "Pending",     cls: "bg-amber-500/10 text-amber-400 border-amber-500/20",         icon: Clock },
-  accepted:   { label: "Accepted",    cls: "bg-blue-500/10 text-blue-400 border-blue-500/20",            icon: CheckCircle2 },
-  rejected:   { label: "Rejected",    cls: "bg-red-500/10 text-red-400 border-red-500/20",               icon: XCircle },
-  expired:    { label: "Expired",     cls: "bg-stone-500/10 text-stone-400 border-stone-500/20",         icon: XCircle },
-  in_transit: { label: "In transit",  cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",   icon: Truck },
-  delivered:  { label: "Delivered",   cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",   icon: CheckCircle2 },
+  pending:  { label: "Pending",  cls: "bg-amber-500/10 text-amber-400 border-amber-500/20",  icon: Clock },
+  accepted: { label: "Accepted", cls: "bg-blue-500/10 text-blue-400 border-blue-500/20",     icon: CheckCircle2 },
+  rejected: { label: "Rejected", cls: "bg-red-500/10 text-red-400 border-red-500/20",        icon: XCircle },
+  expired:  { label: "Expired",  cls: "bg-stone-500/10 text-stone-400 border-stone-500/20",  icon: XCircle },
 };
 
 function fmt(kobo: number) {
@@ -66,7 +64,7 @@ export default function IncomingBookingsPage() {
 
   const visible = bookings.filter(b => {
     if (filter === "pending") return b.status === "pending";
-    if (filter === "accepted") return b.status === "accepted" || b.status === "in_transit";
+    if (filter === "accepted") return b.status === "accepted";
     return true;
   });
 

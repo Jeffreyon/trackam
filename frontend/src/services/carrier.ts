@@ -65,7 +65,7 @@ export type NetworkRate = {
 
 // ── Network bookings ─────────────────────────────────────────────────────────
 
-export type NetworkBookingStatus = "pending" | "accepted" | "rejected" | "expired" | "in_transit" | "delivered";
+export type NetworkBookingStatus = "pending" | "accepted" | "rejected" | "expired";
 
 export type NetworkBooking = {
   id: string;
@@ -82,7 +82,6 @@ export type NetworkBooking = {
   acceptedAt: string | null;
   rejectedAt: string | null;
   expiresAt: string | null;
-  settledAt: string | null;
   createdAt: string;
   updatedAt: string;
   // joined fields

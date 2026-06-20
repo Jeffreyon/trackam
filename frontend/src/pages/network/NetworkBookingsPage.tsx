@@ -5,12 +5,10 @@ import { networkBookingApi, type NetworkBooking, type NetworkBookingStatus } fro
 import { shipmentsApi } from "@/services/logistics";
 
 const STATUS_CFG: Record<NetworkBookingStatus, { label: string; cls: string; icon: typeof Clock }> = {
-  pending:    { label: "Awaiting acceptance", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20",   icon: Clock },
-  accepted:   { label: "Accepted — hand over", cls: "bg-blue-500/10 text-blue-400 border-blue-500/20",    icon: CheckCircle2 },
-  rejected:   { label: "Rejected",             cls: "bg-red-500/10 text-red-400 border-red-500/20",       icon: XCircle },
-  expired:    { label: "Expired",              cls: "bg-stone-500/10 text-stone-400 border-stone-500/20", icon: XCircle },
-  in_transit: { label: "In transit",           cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: Truck },
-  delivered:  { label: "Delivered",            cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
+  pending:  { label: "Awaiting acceptance",  cls: "bg-amber-500/10 text-amber-400 border-amber-500/20",  icon: Clock },
+  accepted: { label: "Accepted — hand over", cls: "bg-blue-500/10 text-blue-400 border-blue-500/20",     icon: CheckCircle2 },
+  rejected: { label: "Rejected",             cls: "bg-red-500/10 text-red-400 border-red-500/20",        icon: XCircle },
+  expired:  { label: "Expired",              cls: "bg-stone-500/10 text-stone-400 border-stone-500/20",  icon: XCircle },
 };
 
 function fmt(kobo: number) {
