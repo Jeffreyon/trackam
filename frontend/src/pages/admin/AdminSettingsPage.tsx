@@ -289,14 +289,15 @@ function SaveRow({ saving, saved, label = "Save" }: { saving: boolean; saved: bo
 // ── Carrier tab ──────────────────────────────────────────────────────────────
 
 function CarrierTab() {
-  const [country, setCountry] = useState("ng");
+  const [country, setCountry]   = useState("ng");
+  const [logoUrl, setLogoUrl]   = useState<string>("");
   const [countryLoaded, setCountryLoaded] = useState(false);
 
   useEffect(() => {
     orgSettingsApi.get().then((s) => {
-      if ((s as Record<string, unknown>).country) {
-        setCountry((s as Record<string, unknown>).country as string);
-      }
+      const settings = s as Record<string, unknown>;
+      if (settings.country) setCountry(settings.country as string);
+      if (settings.logo_url) setLogoUrl(settings.logo_url as string);
       setCountryLoaded(true);
     });
   }, []);
@@ -310,17 +311,18 @@ function CarrierTab() {
 
   return (
     <div className="space-y-6">
-      <BusinessIdentityForm country={country} onCountryChange={setCountry} />
-      <CarrierNetworkForm country={country} />
+      <BusinessIdentityForm country={country} onCountryChange={setCountry} onLogoChange={setLogoUrl} />
+      <CarrierNetworkForm country={country} logoUrl={logoUrl} />
     </div>
   );
 }
 
 // ── Business identity form ───────────────────────────────────────────────────
 
-function BusinessIdentityForm({ country, onCountryChange }: {
+function BusinessIdentityForm({ country, onCountryChange, onLogoChange }: {
   country: string;
   onCountryChange: (c: string) => void;
+  onLogoChange?: (url: string) => void;
 }) {
   const [form, setForm]       = useState<Partial<OrgSettings>>({});
   const [saving, setSaving]   = useState(false);
@@ -345,6 +347,7 @@ function BusinessIdentityForm({ country, onCountryChange }: {
     const b64 = await resizeLogo(file);
     setLogoPreview(b64);
     setField("logo_url", b64);
+    onLogoChange?.(b64);
   }
 
   function handleCountryChange(c: string) {
@@ -534,7 +537,7 @@ function ServiceAreaRow({ area, index, defaultCountry, onChange, onRemove }: {
   );
 }
 
-function CarrierNetworkForm({ country }: { country: string }) {
+function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: string }) {
   const [profile, setProfile]                 = useState<CarrierProfile | null>(null);
   const [loading, setLoading]                 = useState(true);
   const [saving, setSaving]                   = useState(false);
@@ -589,6 +592,7 @@ function CarrierNetworkForm({ country }: { country: string }) {
         bio: bio.trim() || undefined,
         fleetSize: fleetSize ? parseInt(fleetSize, 10) : undefined,
         specializations: specializations.length ? specializations : undefined,
+        logoUrl: logoUrl || undefined,
       };
       const updated = await carrierApi.saveProfile(input);
       setProfile(updated);

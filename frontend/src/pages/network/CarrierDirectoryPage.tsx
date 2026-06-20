@@ -29,6 +29,27 @@ function initials(name: string): string {
   return letters.toUpperCase();
 }
 
+function LogoOrAvatar({ logoUrl, name }: { logoUrl: string | null; name: string }) {
+  const [imgErr, setImgErr] = useState(false);
+
+  if (logoUrl && !imgErr) {
+    return (
+      <img
+        src={logoUrl}
+        alt={name}
+        onError={() => setImgErr(true)}
+        className="flex-shrink-0 h-10 w-10 rounded-lg object-cover ring-1 ring-white/10"
+      />
+    );
+  }
+
+  return (
+    <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-orange-700/10 flex items-center justify-center ring-1 ring-orange-500/20">
+      <span className="text-[11px] font-bold text-orange-300 tracking-wide">{initials(name)}</span>
+    </div>
+  );
+}
+
 function FlagImg({ code }: { code: string }) {
   const [err, setErr] = useState(false);
   if (err) return <span className="text-[9px] font-bold text-stone-600 uppercase">{code.slice(0, 2)}</span>;
@@ -55,9 +76,7 @@ function CarrierCard({ carrier }: { carrier: CarrierDirectoryEntry }) {
 
       {/* ── Header ── */}
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-orange-700/10 flex items-center justify-center ring-1 ring-orange-500/20">
-          <span className="text-[11px] font-bold text-orange-300 tracking-wide">{initials(carrier.name)}</span>
-        </div>
+        <LogoOrAvatar logoUrl={carrier.logoUrl} name={carrier.name} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white truncate leading-tight">{carrier.name}</p>
           <div className="flex items-center gap-1.5 mt-0.5">

@@ -19,6 +19,7 @@ export type CarrierProfile = {
   bio: string | null;
   fleetSize: number | null;
   specializations: string[];
+  logoUrl: string | null;
   isPublished: boolean;
   updatedAt: string;
 };
@@ -38,6 +39,7 @@ export type CarrierProfileInput = {
   bio?: string;
   fleetSize?: number;
   specializations?: string[];
+  logoUrl?: string;
 };
 
 export const carrierApi = {
