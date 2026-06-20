@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Loader2, Package, MapPin, ArrowRight, CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Loader2, Package, MapPin, ArrowRight, CheckCircle2, Clock, XCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { networkBookingApi, type NetworkBooking, type NetworkBookingStatus } from "@/services/carrier";
+import { shipmentsApi } from "@/services/logistics";
 
 const STATUS_CFG: Record<NetworkBookingStatus, { label: string; cls: string; icon: typeof Clock }> = {
   pending:  { label: "Pending",  cls: "bg-amber-500/10 text-amber-400 border-amber-500/20",  icon: Clock },
@@ -16,19 +18,32 @@ function fmt(kobo: number) {
 type Filter = "pending" | "accepted" | "all";
 
 export default function IncomingBookingsPage() {
-  const [bookings, setBookings]     = useState<NetworkBooking[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [filter, setFilter]         = useState<Filter>("pending");
-  const [acting, setActing]         = useState<string | null>(null);
-  const [rejectId, setRejectId]     = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [bookings, setBookings]       = useState<NetworkBooking[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [filter, setFilter]           = useState<Filter>("pending");
+  const [acting, setActing]           = useState<string | null>(null);
+  const [rejectId, setRejectId]       = useState<string | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
-  const [error, setError]           = useState<string | null>(null);
+  const [error, setError]             = useState<string | null>(null);
+  // waybillId → local shipmentId for accepted bookings that have been physically received
+  const [shipmentMap, setShipmentMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     const status = filter === "all" ? undefined : filter;
     setLoading(true);
-    networkBookingApi.listIncoming({ status, limit: 50 })
-      .then(setBookings)
+    Promise.all([
+      networkBookingApi.listIncoming({ status, limit: 50 }),
+      shipmentsApi.list(),
+    ])
+      .then(([bkgs, shipments]) => {
+        setBookings(bkgs);
+        const map = new Map<string, string>();
+        for (const s of shipments) {
+          if (s.waybillId) map.set(s.waybillId, s.id);
+        }
+        setShipmentMap(map);
+      })
       .catch(() => setError("Could not load incoming bookings."))
       .finally(() => setLoading(false));
   }, [filter]);
@@ -111,6 +126,8 @@ export default function IncomingBookingsPage() {
           const isPending = b.status === "pending";
           const isActing = acting === b.id;
 
+          const linkedShipmentId = b.waybillId ? shipmentMap.get(b.waybillId) : undefined;
+
           return (
             <div key={b.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
               <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -141,28 +158,40 @@ export default function IncomingBookingsPage() {
                   <span>You receive: <span className="text-emerald-400 font-medium">{fmt(b.quotedRateKobo - b.bookingFeeKobo)}</span></span>
                 </div>
 
-                {isPending && (
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  {linkedShipmentId && (
                     <button
                       type="button"
-                      onClick={() => { setRejectId(b.id); setRejectNotes(""); }}
-                      disabled={isActing}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 h-8 text-xs font-medium text-stone-300 hover:bg-white/[0.07] disabled:opacity-60 transition-all"
+                      onClick={() => navigate(`/dashboard/shipments/${linkedShipmentId}`)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 h-8 text-xs font-medium text-stone-300 hover:bg-white/[0.07] transition-all"
                     >
-                      {isActing && rejectId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                      Decline
+                      <ExternalLink className="h-3 w-3" /> View Shipment
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAccept(b.id)}
-                      disabled={isActing}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-3 h-8 text-xs font-semibold text-white disabled:opacity-60 transition-all"
-                    >
-                      {isActing && rejectId !== b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                      Accept
-                    </button>
-                  </div>
-                )}
+                  )}
+
+                  {isPending && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => { setRejectId(b.id); setRejectNotes(""); }}
+                        disabled={isActing}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 h-8 text-xs font-medium text-stone-300 hover:bg-white/[0.07] disabled:opacity-60 transition-all"
+                      >
+                        {isActing && rejectId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                        Decline
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAccept(b.id)}
+                        disabled={isActing}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-3 h-8 text-xs font-semibold text-white disabled:opacity-60 transition-all"
+                      >
+                        {isActing && rejectId !== b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                        Accept
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
               {b.acceptedAt && (
