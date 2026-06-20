@@ -281,7 +281,7 @@ export default function CarrierDirectoryPage() {
 
       {bookingCarrier && (
         <BookShipmentModal
-          initialCarrierId={bookingCarrier.operatorId}
+          initialCarrier={bookingCarrier}
           onClose={() => setBookingCarrier(null)}
         />
       )}

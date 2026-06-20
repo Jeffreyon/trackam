@@ -2,17 +2,17 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   X, Loader2, ArrowRight, ArrowLeft, CheckCircle2,
-  Package, Truck, Zap, ChevronRight, AlertCircle,
+  Package, Truck, Zap, ChevronRight, AlertCircle, MapPin,
 } from "lucide-react";
 import { waybillApi, type OperatorWaybill } from "@/services/handover";
-import { networkRateApi, networkBookingApi, type NetworkRate, type NetworkBooking } from "@/services/carrier";
+import { networkRateApi, networkBookingApi, type NetworkRate, type NetworkBooking, type CarrierDirectoryEntry } from "@/services/carrier";
 
-type Step = "waybill" | "route" | "rates" | "confirm" | "done";
+type Step = "carrier" | "waybill" | "route" | "rates" | "confirm" | "done";
 
 interface Props {
   onClose: () => void;
   initialWaybill?: OperatorWaybill;
-  initialCarrierId?: string; // pre-select a Trackam carrier
+  initialCarrier?: CarrierDirectoryEntry; // Flow 2: carrier-first
 }
 
 const CAPACITY_LABELS: Record<string, string> = {
@@ -57,11 +57,11 @@ function RateRow({
   onSelect: () => void;
 }) {
   const isTrackam    = rate.carrier === "trackam";
-  const capCls       = CAPACITY_COLORS[rate.capacityType ?? ""] ?? "text-stone-400 bg-white/5 ring-white/10";
   const amountKobo   = Math.round(rate.totalCharge.amount * 100);
   const amountDisplay = rate.totalCharge.currency === "NGN"
     ? `₦${(rate.totalCharge.amount).toLocaleString("en-NG")}`
     : `${rate.totalCharge.currency} ${rate.totalCharge.amount.toLocaleString()}`;
+  const capCls = CAPACITY_COLORS[rate.capacityType ?? ""] ?? "text-stone-400 bg-white/5 ring-white/10";
 
   return (
     <button
@@ -119,8 +119,29 @@ function RateRow({
   );
 }
 
-export default function BookShipmentModal({ onClose, initialWaybill, initialCarrierId }: Props) {
-  const [step, setStep]           = useState<Step>(initialWaybill ? "route" : "waybill");
+/** Build a synthetic NetworkRate from a directory entry — no network call needed. */
+function rateFromCarrier(c: CarrierDirectoryEntry): NetworkRate {
+  return {
+    carrier:      "trackam",
+    carrierId:    c.operatorId,
+    carrierName:  c.name,
+    serviceName:  "Trackam network",
+    serviceCode:  `trackam_${c.operatorId}`,
+    capacityType: c.capacityType,
+    logoUrl:      c.logoUrl ?? null,
+    country:      c.country ?? null,
+    totalCharge:  { amount: c.baseRate / 100, currency: c.currency },
+    transitDays:  null,
+    deliveryBy:   null,
+  };
+}
+
+export default function BookShipmentModal({ onClose, initialWaybill, initialCarrier }: Props) {
+  const carrierFirstMode = !!initialCarrier;
+
+  const [step, setStep]           = useState<Step>(
+    initialCarrier ? "carrier" : initialWaybill ? "route" : "waybill"
+  );
   const [waybills, setWaybills]   = useState<OperatorWaybill[]>([]);
   const [waybill, setWaybill]     = useState<OperatorWaybill | null>(initialWaybill ?? null);
   const [originCity, setOriginCity]   = useState("");
@@ -130,7 +151,9 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
   const [rates, setRates]         = useState<NetworkRate[]>([]);
   const [loadingRates, setLoadingRates] = useState(false);
   const [ratesError, setRatesError]     = useState("");
-  const [selected, setSelected]   = useState<NetworkRate | null>(null);
+  const [selected, setSelected]   = useState<NetworkRate | null>(
+    initialCarrier ? rateFromCarrier(initialCarrier) : null
+  );
   const [booking, setBooking]     = useState<NetworkBooking | null>(null);
   const [booking_loading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError]     = useState("");
@@ -145,26 +168,28 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
     if (waybill.estimatedWeightKg) setWeightKg(String(waybill.estimatedWeightKg));
   }, [waybill]);
 
-  // Load waybills for the picker step
+  // Load waybills whenever picker is shown
   useEffect(() => {
     if (step === "waybill") {
       waybillApi.list().then(setWaybills).catch(() => {});
     }
   }, [step]);
 
-  // Pre-select carrier if initialCarrierId provided after rates load
-  useEffect(() => {
-    if (initialCarrierId && rates.length > 0) {
-      const match = rates.find(r => r.carrier === "trackam" && r.carrierId === initialCarrierId);
-      if (match) setSelected(match);
-    }
-  }, [initialCarrierId, rates]);
-
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  function selectWaybill(w: OperatorWaybill) {
+    setWaybill(w);
+    if (carrierFirstMode) {
+      // Rate already known — skip route check, go straight to confirm
+      setStep("confirm");
+    } else {
+      setStep("route");
+    }
+  }
 
   async function fetchRates() {
     if (!originCity.trim() || !destCity.trim()) return;
@@ -211,7 +236,6 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
           quotedRateKobo:   Math.round(selected.totalCharge.amount * 100),
         });
       } else {
-        // Integrated carriers need structured address — not yet supported from this modal
         setBookingError("DHL booking requires structured shipper/recipient addresses. Use the DHL booking form instead.");
         return;
       }
@@ -227,10 +251,31 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
     }
   }
 
-  const trackamRates   = rates.filter(r => r.carrier === "trackam");
+  const trackamRates    = rates.filter(r => r.carrier === "trackam");
   const integratedRates = rates.filter(r => r.carrier !== "trackam");
 
   const inputCls = "w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/40 focus:outline-none transition-colors";
+
+  function goBack() {
+    if (step === "route")   setStep("waybill");
+    if (step === "rates")   setStep("route");
+    if (step === "confirm") {
+      if (carrierFirstMode) { setStep("waybill"); }
+      else { setSelected(null); setStep("rates"); }
+    }
+    if (step === "waybill" && carrierFirstMode) setStep("carrier");
+  }
+
+  const headerTitle = {
+    carrier: "Book a carrier",
+    waybill: "Select waybill",
+    route:   "Check carrier rates",
+    rates:   "Choose a carrier",
+    confirm: "Confirm booking",
+    done:    "Booking submitted",
+  }[step];
+
+  const showBack = step !== "done" && !(step === "waybill" && !carrierFirstMode) && step !== "carrier";
 
   const panel = (
     <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center p-4">
@@ -245,13 +290,9 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] shrink-0">
           <div className="flex items-center gap-2.5">
-            {step !== "waybill" && step !== "done" && (
+            {showBack && (
               <button
-                onClick={() => {
-                  if (step === "route")   setStep(initialWaybill ? "route" : "waybill");
-                  if (step === "rates")   setStep("route");
-                  if (step === "confirm") { setSelected(null); setStep("rates"); }
-                }}
+                onClick={goBack}
                 className="h-7 w-7 rounded-lg hover:bg-white/[0.06] flex items-center justify-center text-stone-500 hover:text-white transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -261,14 +302,8 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
               <Truck className="h-4 w-4 text-orange-400" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white leading-tight">
-                {step === "waybill"  && "Select waybill"}
-                {step === "route"    && "Check carrier rates"}
-                {step === "rates"    && "Choose a carrier"}
-                {step === "confirm"  && "Confirm booking"}
-                {step === "done"     && "Booking submitted"}
-              </p>
-              {waybill && step !== "waybill" && (
+              <p className="text-sm font-semibold text-white leading-tight">{headerTitle}</p>
+              {waybill && step !== "waybill" && step !== "carrier" && (
                 <p className="text-[11px] text-stone-500 font-mono">{waybill.waybillNumber}</p>
               )}
             </div>
@@ -281,17 +316,93 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
         {/* Body */}
         <div className="overflow-y-auto flex-1 p-5 space-y-4">
 
+          {/* ── CARRIER STEP (Flow 2 entry point) ── */}
+          {step === "carrier" && initialCarrier && (() => {
+            const rate = rateFromCarrier(initialCarrier);
+            const capCls = CAPACITY_COLORS[initialCarrier.capacityType ?? ""] ?? "text-stone-400 bg-white/5 ring-white/10";
+            const hasRate = initialCarrier.baseRate > 0 && initialCarrier.pricingModel !== "quoted";
+            return (
+              <div className="space-y-4">
+                {/* Carrier identity */}
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 flex items-center gap-3">
+                  <LogoOrAvatar logoUrl={initialCarrier.logoUrl} name={initialCarrier.name} size={12} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white">{initialCarrier.name}</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 ${capCls}`}>
+                        {CAPACITY_LABELS[initialCarrier.capacityType] ?? initialCarrier.capacityType}
+                      </span>
+                      {initialCarrier.country && (
+                        <span className="text-[11px] text-stone-500 uppercase">{initialCarrier.country}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bio */}
+                {initialCarrier.bio && (
+                  <p className="text-xs text-stone-500 leading-relaxed">{initialCarrier.bio}</p>
+                )}
+
+                {/* Service areas */}
+                {initialCarrier.serviceAreas.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-wider text-stone-600 font-semibold">Coverage</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {initialCarrier.serviceAreas.slice(0, 8).map((area, i) => (
+                        <span key={i} className="flex items-center gap-1 rounded-md bg-white/[0.04] px-2 py-0.5 text-[11px] text-stone-500">
+                          <MapPin className="h-2.5 w-2.5 shrink-0 text-stone-700" />
+                          {area.city}{area.state ? `, ${area.state}` : ""}
+                        </span>
+                      ))}
+                      {initialCarrier.serviceAreas.length > 8 && (
+                        <span className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[11px] text-stone-600">
+                          +{initialCarrier.serviceAreas.length - 8} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Rate */}
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 space-y-2">
+                  <p className="text-[10px] uppercase tracking-wider text-stone-600 font-semibold">Rate</p>
+                  {hasRate ? (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xl font-bold text-white">
+                          {rate.totalCharge.currency === "NGN" ? "₦" : rate.totalCharge.currency + " "}
+                          {rate.totalCharge.amount.toLocaleString("en-NG")}
+                        </span>
+                        <span className="text-xs text-stone-500">
+                          {initialCarrier.pricingModel === "per_km" ? "per km" : "per shipment"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-600">5% platform fee deducted from carrier payout — you pay the listed rate.</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-stone-500">Rate on request — carrier will confirm after reviewing your waybill.</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ── WAYBILL PICKER ── */}
           {step === "waybill" && (
             <div className="space-y-2">
-              <p className="text-xs text-stone-500">Select the waybill you want to book a carrier for:</p>
+              <p className="text-xs text-stone-500">
+                {carrierFirstMode
+                  ? `Select the waybill you want ${initialCarrier?.name} to carry:`
+                  : "Select the waybill you want to book a carrier for:"}
+              </p>
               {waybills.length === 0 ? (
                 <div className="py-10 text-center text-sm text-stone-600">Loading waybills…</div>
               ) : (
                 waybills.filter(w => !w.isDelivered).map((w) => (
                   <button
                     key={w.id}
-                    onClick={() => { setWaybill(w); setStep("route"); }}
+                    onClick={() => selectWaybill(w)}
                     className="w-full text-left rounded-lg border border-white/[0.06] bg-white/[0.03] hover:border-white/[0.1] hover:bg-white/[0.05] px-4 py-3 transition-all flex items-center gap-3"
                   >
                     <Package className="h-4 w-4 text-stone-600 shrink-0" />
@@ -431,7 +542,7 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-500">Route</span>
-                  <span className="text-stone-300">{originCity} → {destCity}</span>
+                  <span className="text-stone-300">{waybill.pickupLocation} → {waybill.deliveryLocation}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-500">Cargo</span>
@@ -550,8 +661,16 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
         </div>
 
         {/* Footer */}
-        {(step === "route" || step === "confirm" || step === "done") && (
+        {(step === "carrier" || step === "route" || step === "confirm" || step === "done") && (
           <div className="px-5 py-4 border-t border-white/[0.06] shrink-0">
+            {step === "carrier" && (
+              <button
+                onClick={() => setStep("waybill")}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white h-10 text-sm font-semibold transition-colors"
+              >
+                <ArrowRight className="h-4 w-4" /> Select a waybill
+              </button>
+            )}
             {step === "route" && (
               <button
                 onClick={fetchRates}
