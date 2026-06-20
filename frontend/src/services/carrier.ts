@@ -57,6 +57,7 @@ export type NetworkRate = {
   transitDays: number | null;
   deliveryBy: string | null;
   // Trackam-only extras
+  pricingModel?: PricingModel;
   capacityType?: CapacityType;
   specializations?: string[];
   logoUrl?: string | null;

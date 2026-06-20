@@ -127,6 +127,7 @@ function rateFromCarrier(c: CarrierDirectoryEntry): NetworkRate {
     carrierName:  c.name,
     serviceName:  "Trackam network",
     serviceCode:  `trackam_${c.operatorId}`,
+    pricingModel: c.pricingModel,
     capacityType: c.capacityType,
     logoUrl:      c.logoUrl ?? null,
     country:      c.country ?? null,
@@ -553,27 +554,38 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
               {/* Rate breakdown */}
               <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 space-y-2">
                 <p className="text-[10px] font-semibold text-stone-600 uppercase tracking-wider mb-3">Rate breakdown</p>
-                {selected.carrier === "trackam" ? (
-                  <>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-stone-500">Carrier rate</span>
-                      <span className="text-stone-300">
-                        {selected.totalCharge.currency === "NGN" ? "₦" : selected.totalCharge.currency + " "}
-                        {selected.totalCharge.amount.toLocaleString("en-NG")}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-stone-500">Platform fee (5%)</span>
-                      <span className="text-stone-500">deducted from carrier</span>
-                    </div>
-                    <div className="border-t border-white/[0.06] pt-2 flex justify-between text-sm font-semibold">
-                      <span className="text-white">You pay</span>
-                      <span className="text-orange-400">
-                        ₦{selected.totalCharge.amount.toLocaleString("en-NG")}
-                      </span>
-                    </div>
-                  </>
-                ) : (
+                {selected.carrier === "trackam" ? (() => {
+                  const isPerKm = selected.pricingModel === "per_km";
+                  const sym = selected.totalCharge.currency === "NGN" ? "₦" : selected.totalCharge.currency + " ";
+                  return (
+                    <>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-stone-500">
+                          Carrier rate{isPerKm ? " (per km)" : ""}
+                        </span>
+                        <span className="text-stone-300">
+                          {sym}{selected.totalCharge.amount.toLocaleString("en-NG")}
+                          {isPerKm ? "/km" : ""}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-stone-500">Platform fee (5%)</span>
+                        <span className="text-stone-500">deducted from carrier</span>
+                      </div>
+                      <div className="border-t border-white/[0.06] pt-2 flex justify-between text-sm font-semibold">
+                        <span className="text-white">You pay</span>
+                        <span className="text-orange-400">
+                          {isPerKm ? `${sym}${selected.totalCharge.amount.toLocaleString("en-NG")}/km` : `${sym}${selected.totalCharge.amount.toLocaleString("en-NG")}`}
+                        </span>
+                      </div>
+                      {isPerKm && (
+                        <p className="text-[11px] text-amber-400/80">
+                          This is a per-km rate. The carrier will confirm the final total based on distance.
+                        </p>
+                      )}
+                    </>
+                  );
+                })() : (
                   <>
                     <div className="flex justify-between text-xs">
                       <span className="text-stone-500">Carrier rate</span>
