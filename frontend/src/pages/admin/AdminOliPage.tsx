@@ -118,7 +118,7 @@ export default function AdminOliPage() {
         </header>
 
         <div className="p-5 space-y-4">
-          {connected && !confirmRotate && (
+          {connected && !confirmUnlink && (
             <>
               <div className="flex items-start gap-3 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] px-4 py-3">
                 <Key className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
