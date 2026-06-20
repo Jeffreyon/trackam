@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { MapPin, Truck, Globe } from "lucide-react";
+import { MapPin, Truck, ExternalLink } from "lucide-react";
 import { carrierApi, type CarrierDirectoryEntry } from "@/services/carrier";
 
-const CAPACITY_LABELS: Record<string, string> = {
-  motorcycle: "Motorcycle",
-  van:        "Van",
-  truck:      "Truck",
-  fleet:      "Fleet",
+const CAPACITY_CONFIG: Record<string, { label: string; color: string; ring: string; dot: string }> = {
+  motorcycle: { label: "Motorcycle", color: "text-orange-400",  ring: "ring-orange-500/25",  dot: "bg-orange-500" },
+  van:        { label: "Van",        color: "text-sky-400",     ring: "ring-sky-500/25",     dot: "bg-sky-500" },
+  truck:      { label: "Truck",      color: "text-violet-400",  ring: "ring-violet-500/25",  dot: "bg-violet-500" },
+  fleet:      { label: "Fleet",      color: "text-emerald-400", ring: "ring-emerald-500/25", dot: "bg-emerald-500" },
 };
 
 const PRICING_LABELS: Record<string, string> = {
@@ -15,60 +15,127 @@ const PRICING_LABELS: Record<string, string> = {
   quoted:       "Quoted",
 };
 
-function CarrierCard({ carrier }: { carrier: CarrierDirectoryEntry }) {
+const SPEC_COLORS = [
+  "text-amber-400 bg-amber-500/[0.1] ring-amber-500/20",
+  "text-cyan-400 bg-cyan-500/[0.1] ring-cyan-500/20",
+  "text-pink-400 bg-pink-500/[0.1] ring-pink-500/20",
+  "text-indigo-400 bg-indigo-500/[0.1] ring-indigo-500/20",
+  "text-teal-400 bg-teal-500/[0.1] ring-teal-500/20",
+];
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : name.slice(0, 2);
+  return letters.toUpperCase();
+}
+
+function FlagImg({ code }: { code: string }) {
+  const [err, setErr] = useState(false);
+  if (err) return <span className="text-[9px] font-bold text-stone-600 uppercase">{code.slice(0, 2)}</span>;
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3 hover:border-white/[0.1] transition-colors">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-white truncate">{carrier.name}</p>
+    <img
+      src={`https://flagcdn.com/${code.toLowerCase()}.svg`}
+      alt=""
+      onError={() => setErr(true)}
+      className="h-3 w-[18px] object-cover rounded-[2px] shrink-0"
+    />
+  );
+}
+
+function CarrierCard({ carrier }: { carrier: CarrierDirectoryEntry }) {
+  const cap = CAPACITY_CONFIG[carrier.capacityType] ?? {
+    label: carrier.capacityType,
+    color: "text-stone-400",
+    ring: "ring-white/10",
+    dot: "bg-stone-500",
+  };
+
+  return (
+    <div className="group rounded-xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent p-4 flex flex-col gap-3 hover:border-white/[0.1] hover:from-white/[0.05] transition-all">
+
+      {/* ── Header ── */}
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-orange-700/10 flex items-center justify-center ring-1 ring-orange-500/20">
+          <span className="text-[11px] font-bold text-orange-300 tracking-wide">{initials(carrier.name)}</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-white truncate leading-tight">{carrier.name}</p>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <Globe className="h-3 w-3 text-stone-600 shrink-0" />
-            <span className="text-xs text-stone-500">{carrier.country?.toUpperCase()}</span>
+            <FlagImg code={carrier.country ?? "ng"} />
+            <span className="text-[11px] text-stone-500 uppercase">{carrier.country}</span>
+            {carrier.fleetSize != null && (
+              <>
+                <span className="text-stone-700">·</span>
+                <Truck className="h-2.5 w-2.5 text-stone-600 shrink-0" />
+                <span className="text-[11px] text-stone-500">{carrier.fleetSize} vehicles</span>
+              </>
+            )}
           </div>
         </div>
-        <span className="shrink-0 rounded-md bg-white/[0.06] px-2 py-0.5 text-[11px] font-medium text-stone-400">
-          {CAPACITY_LABELS[carrier.capacityType] ?? carrier.capacityType}
+        <span className={`shrink-0 flex items-center gap-1.5 rounded-md bg-white/[0.05] px-2 py-0.5 text-[11px] font-medium ring-1 ${cap.ring} ${cap.color}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${cap.dot} opacity-80`} />
+          {cap.label}
         </span>
       </div>
 
-      {carrier.bio && (
-        <p className="text-xs text-stone-500 line-clamp-2">{carrier.bio}</p>
-      )}
-
-      {carrier.serviceAreas.length > 0 && (
+      {/* ── Specializations ── */}
+      {carrier.specializations && carrier.specializations.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {carrier.serviceAreas.slice(0, 5).map((area, i) => (
-            <span
-              key={i}
-              className="flex items-center gap-1 rounded-md bg-white/[0.04] px-2 py-0.5 text-[11px] text-stone-500"
-            >
-              <MapPin className="h-2.5 w-2.5 shrink-0" />
-              {area.city}{area.state ? `, ${area.state}` : ""}
+          {carrier.specializations.slice(0, 5).map((s, i) => (
+            <span key={s} className={`rounded-md px-2 py-0.5 text-[10px] font-medium ring-1 ${SPEC_COLORS[i % SPEC_COLORS.length]}`}>
+              {s}
             </span>
           ))}
-          {carrier.serviceAreas.length > 5 && (
-            <span className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[11px] text-stone-600">
-              +{carrier.serviceAreas.length - 5} more
-            </span>
-          )}
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
-        <span className="text-xs text-stone-600">{PRICING_LABELS[carrier.pricingModel] ?? carrier.pricingModel}</span>
-        {carrier.pricingModel !== "quoted" && carrier.baseRate > 0 && (
-          <span className="text-xs font-medium text-stone-400">
-            {carrier.currency} {(carrier.baseRate / 100).toLocaleString()}
-          </span>
-        )}
+      {/* ── Bio ── */}
+      {carrier.bio && (
+        <p className="text-xs text-stone-500 line-clamp-2 leading-relaxed">{carrier.bio}</p>
+      )}
+
+      {/* ── Coverage ── */}
+      {carrier.serviceAreas.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-stone-700 font-semibold">Coverage</p>
+          <div className="flex flex-wrap gap-1.5">
+            {carrier.serviceAreas.slice(0, 6).map((area, i) => (
+              <span
+                key={i}
+                className="flex items-center gap-1 rounded-md bg-white/[0.04] px-2 py-0.5 text-[11px] text-stone-500"
+              >
+                <FlagImg code={area.country ?? carrier.country ?? "ng"} />
+                <MapPin className="h-2.5 w-2.5 shrink-0 text-stone-700" />
+                {area.city}{area.state ? `, ${area.state}` : ""}
+              </span>
+            ))}
+            {carrier.serviceAreas.length > 6 && (
+              <span className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[11px] text-stone-600">
+                +{carrier.serviceAreas.length - 6} more
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Footer ── */}
+      <div className="flex items-center justify-between pt-2 border-t border-white/[0.04] mt-auto">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-stone-600">{PRICING_LABELS[carrier.pricingModel] ?? carrier.pricingModel}</span>
+          {carrier.pricingModel !== "quoted" && carrier.baseRate > 0 && (
+            <span className="text-[11px] font-medium text-stone-400">
+              · {carrier.currency} {(carrier.baseRate / 100).toLocaleString()}
+            </span>
+          )}
+        </div>
         {carrier.frontendUrl && (
           <a
             href={carrier.frontendUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
+            className="flex items-center gap-1 text-[11px] text-orange-400 hover:text-orange-300 transition-colors font-medium"
           >
-            Visit →
+            Visit <ExternalLink className="h-2.5 w-2.5" />
           </a>
         )}
       </div>
@@ -96,8 +163,9 @@ export default function CarrierDirectoryPage() {
       c.name.toLowerCase().includes(q) ||
       c.country?.toLowerCase().includes(q) ||
       c.serviceAreas.some(
-        (a) => a.city.toLowerCase().includes(q) || a.state.toLowerCase().includes(q)
-      )
+        (a) => a.city.toLowerCase().includes(q) || a.state?.toLowerCase().includes(q)
+      ) ||
+      c.specializations?.some((s) => s.toLowerCase().includes(q))
     );
   });
 
@@ -105,7 +173,7 @@ export default function CarrierDirectoryPage() {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-36 rounded-xl border border-white/[0.06] bg-white/[0.03] animate-pulse" />
+          <div key={i} className="h-48 rounded-xl border border-white/[0.06] bg-white/[0.03] animate-pulse" />
         ))}
       </div>
     );
@@ -124,7 +192,7 @@ export default function CarrierDirectoryPage() {
       <div className="flex items-center gap-3">
         <input
           type="text"
-          placeholder="Search by name, city, or country…"
+          placeholder="Search by name, city, country, or specialization…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none"
@@ -144,7 +212,7 @@ export default function CarrierDirectoryPage() {
           </p>
           <p className="text-xs text-stone-600 mt-1">
             {search
-              ? "Try a different city or country."
+              ? "Try a different city, country, or specialization."
               : "Set up your carrier profile and publish it to be the first."}
           </p>
         </div>

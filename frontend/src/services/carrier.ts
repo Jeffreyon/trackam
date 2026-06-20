@@ -17,6 +17,8 @@ export type CarrierProfile = {
   baseRate: number;
   currency: string;
   bio: string | null;
+  fleetSize: number | null;
+  specializations: string[];
   isPublished: boolean;
   updatedAt: string;
 };
@@ -34,6 +36,8 @@ export type CarrierProfileInput = {
   baseRate: number;
   currency: string;
   bio?: string;
+  fleetSize?: number;
+  specializations?: string[];
 };
 
 export const carrierApi = {

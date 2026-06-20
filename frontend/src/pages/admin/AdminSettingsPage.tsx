@@ -560,6 +560,8 @@ function CarrierNetworkForm({ country }: { country: string }) {
         setPricingModel(p.pricingModel);
         setBaseRate(p.baseRate > 0 ? String(p.baseRate / 100) : "");
         setBio(p.bio || "");
+        if (p.fleetSize) setFleetSize(String(p.fleetSize));
+        if (p.specializations?.length) setSpecializations(p.specializations);
       }
       setLoading(false);
     });
@@ -585,6 +587,8 @@ function CarrierNetworkForm({ country }: { country: string }) {
         baseRate: baseRate ? Math.round(parseFloat(baseRate) * 100) : 0,
         currency,
         bio: bio.trim() || undefined,
+        fleetSize: fleetSize ? parseInt(fleetSize, 10) : undefined,
+        specializations: specializations.length ? specializations : undefined,
       };
       const updated = await carrierApi.saveProfile(input);
       setProfile(updated);
