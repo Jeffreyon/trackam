@@ -119,8 +119,20 @@ function RateRow({
   );
 }
 
-/** Build a synthetic NetworkRate from a directory entry — no network call needed. */
-function rateFromCarrier(c: CarrierDirectoryEntry): NetworkRate {
+/** Extract the city name from a free-text location string.
+ *  "Alaba Market, Lagos" → "Lagos"   "Wuse, Abuja" → "Abuja"  "Lagos" → "Lagos" */
+function extractCity(location: string): string {
+  const parts = location.split(",").map(p => p.trim()).filter(Boolean);
+  return parts.length >= 2 ? parts[parts.length - 1] : (parts[0] ?? location);
+}
+
+/** Build a synthetic NetworkRate from a directory entry.
+ *  Pass distanceKm to compute the correct total for per_km carriers. */
+function rateFromCarrier(c: CarrierDirectoryEntry, distanceKm?: number | null): NetworkRate {
+  const baseRateNgn = c.baseRate / 100;
+  const amount = (c.pricingModel === "per_km" && distanceKm)
+    ? baseRateNgn * distanceKm
+    : baseRateNgn;
   return {
     carrier:      "trackam",
     carrierId:    c.operatorId,
@@ -128,10 +140,11 @@ function rateFromCarrier(c: CarrierDirectoryEntry): NetworkRate {
     serviceName:  "Trackam network",
     serviceCode:  `trackam_${c.operatorId}`,
     pricingModel: c.pricingModel,
+    distanceKm:   (c.pricingModel === "per_km" && distanceKm) ? distanceKm : null,
     capacityType: c.capacityType,
     logoUrl:      c.logoUrl ?? null,
     country:      c.country ?? null,
-    totalCharge:  { amount: c.baseRate / 100, currency: c.currency },
+    totalCharge:  { amount, currency: c.currency },
     transitDays:  null,
     deliveryBy:   null,
   };
@@ -162,10 +175,8 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
   // Pre-fill cities from waybill when waybill is selected
   useEffect(() => {
     if (!waybill) return;
-    const origin = waybill.pickupLocation.split(",").pop()?.trim() ?? waybill.pickupLocation;
-    const dest   = waybill.deliveryLocation.split(",").pop()?.trim() ?? waybill.deliveryLocation;
-    setOriginCity(origin);
-    setDestCity(dest);
+    setOriginCity(extractCity(waybill.pickupLocation));
+    setDestCity(extractCity(waybill.deliveryLocation));
     if (waybill.estimatedWeightKg) setWeightKg(String(waybill.estimatedWeightKg));
   }, [waybill]);
 
@@ -184,8 +195,9 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
 
   function selectWaybill(w: OperatorWaybill) {
     setWaybill(w);
-    if (carrierFirstMode) {
-      // Rate already known — skip route check, go straight to confirm
+    if (carrierFirstMode && initialCarrier) {
+      // Recompute rate with waybill's distanceKm so per_km carriers show the correct total
+      setSelected(rateFromCarrier(initialCarrier, w.distanceKm));
       setStep("confirm");
     } else {
       setStep("route");
@@ -209,6 +221,7 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
         destination: { countryCode, cityName: destCity.trim() },
         packages:    [pkg],
         currency:    "NGN",
+        distanceKm:  waybill?.distanceKm ?? null,
       });
       const safeRates = Array.isArray(result) ? result : [];
       setRates(safeRates);
@@ -556,18 +569,28 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
                 <p className="text-[10px] font-semibold text-stone-600 uppercase tracking-wider mb-3">Rate breakdown</p>
                 {selected.carrier === "trackam" ? (() => {
                   const isPerKm = selected.pricingModel === "per_km";
-                  const sym = selected.totalCharge.currency === "NGN" ? "₦" : selected.totalCharge.currency + " ";
+                  const km      = selected.distanceKm;
+                  const sym     = selected.totalCharge.currency === "NGN" ? "₦" : selected.totalCharge.currency + " ";
+                  const baseNgn = initialCarrier ? initialCarrier.baseRate / 100 : null;
                   return (
                     <>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-stone-500">
-                          Carrier rate{isPerKm ? " (per km)" : ""}
-                        </span>
-                        <span className="text-stone-300">
-                          {sym}{selected.totalCharge.amount.toLocaleString("en-NG")}
-                          {isPerKm ? "/km" : ""}
-                        </span>
-                      </div>
+                      {isPerKm && baseNgn && km ? (
+                        <>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-stone-500">Rate per km</span>
+                            <span className="text-stone-300">{sym}{baseNgn.toLocaleString("en-NG")}/km</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-stone-500">Distance</span>
+                            <span className="text-stone-300">{km.toLocaleString()} km</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-stone-500">Carrier rate{isPerKm ? " (per km)" : ""}</span>
+                          <span className="text-stone-300">{sym}{selected.totalCharge.amount.toLocaleString("en-NG")}{isPerKm && !km ? "/km" : ""}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-xs">
                         <span className="text-stone-500">Platform fee (5%)</span>
                         <span className="text-stone-500">deducted from carrier</span>
@@ -575,12 +598,14 @@ export default function BookShipmentModal({ onClose, initialWaybill, initialCarr
                       <div className="border-t border-white/[0.06] pt-2 flex justify-between text-sm font-semibold">
                         <span className="text-white">You pay</span>
                         <span className="text-orange-400">
-                          {isPerKm ? `${sym}${selected.totalCharge.amount.toLocaleString("en-NG")}/km` : `${sym}${selected.totalCharge.amount.toLocaleString("en-NG")}`}
+                          {(isPerKm && !km)
+                            ? `${sym}${selected.totalCharge.amount.toLocaleString("en-NG")}/km`
+                            : `${sym}${selected.totalCharge.amount.toLocaleString("en-NG")}`}
                         </span>
                       </div>
-                      {isPerKm && (
+                      {isPerKm && !km && (
                         <p className="text-[11px] text-amber-400/80">
-                          This is a per-km rate. The carrier will confirm the final total based on distance.
+                          Distance unknown — carrier will confirm the final total.
                         </p>
                       )}
                     </>

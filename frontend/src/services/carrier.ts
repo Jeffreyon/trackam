@@ -58,6 +58,7 @@ export type NetworkRate = {
   deliveryBy: string | null;
   // Trackam-only extras
   pricingModel?: PricingModel;
+  distanceKm?: number | null;    // set when per_km rate was computed against a known distance
   capacityType?: CapacityType;
   specializations?: string[];
   logoUrl?: string | null;
@@ -101,6 +102,7 @@ export const networkRateApi = {
     packages: Array<{ weight: { value: number; unit: string }; dimensions?: { length: number; width: number; height: number; unit: string } }>;
     currency?: string;
     shipDate?: string;
+    distanceKm?: number | null;
   }): Promise<NetworkRate[]> =>
     apiClient.post<{ rates: NetworkRate[] }>("/api/carriers/rates", params).then((r) => r.data.rates),
 };

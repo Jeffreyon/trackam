@@ -11,8 +11,7 @@ const CAPACITY_OPTIONS: { value: CapacityType; label: string }[] = [
 
 const PRICING_OPTIONS: { value: PricingModel; label: string; description: string }[] = [
   { value: "per_shipment", label: "Per shipment", description: "Flat rate per job" },
-  { value: "per_km",       label: "Per km",       description: "Rate per kilometre" },
-  { value: "quoted",       label: "Quoted",       description: "Price on request" },
+  { value: "per_km",       label: "Per km",       description: "Rate × distance" },
 ];
 
 const EMPTY_AREA: ServiceArea = { city: "", state: "", country: "NG" };
