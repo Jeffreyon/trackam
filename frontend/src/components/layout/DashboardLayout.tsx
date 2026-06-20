@@ -48,7 +48,9 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   {
     label: "Network",
     items: [
-      { to: "/dashboard/network", label: "Carrier Directory", icon: Globe, end: false },
+      { to: "/dashboard/network",           label: "Carrier Directory",  icon: Globe,    end: false },
+      { to: "/dashboard/bookings",          label: "My Bookings",        icon: Package,  end: false },
+      { to: "/dashboard/incoming-bookings", label: "Incoming Bookings",  icon: Truck,    end: false },
     ],
   },
   {
@@ -69,7 +71,9 @@ const PAGE_TITLES: Record<string, { title: string; description: string }> = {
   "/dashboard/riders":             { title: "Riders",         description: "Your active dispatch riders." },
   "/dashboard/staff":              { title: "Staff",          description: "Your team — for internal custody handovers." },
   "/dashboard/routes":             { title: "Routes",         description: "Set up your standard delivery lanes." },
-  "/dashboard/network":            { title: "Carrier Directory",  description: "Browse logistics operators on the Trackam network." },
+  "/dashboard/network":            { title: "Carrier Directory",    description: "Browse logistics operators on the Trackam network." },
+  "/dashboard/bookings":          { title: "My Bookings",          description: "Track shipments you've booked with other carriers." },
+  "/dashboard/incoming-bookings": { title: "Incoming Bookings",    description: "Accept or decline booking requests from other operators." },
   "/dashboard/account":            { title: "Account",            description: "Your display name, email, and profile photo." },
   "/dashboard/security":           { title: "Security",           description: "Password, sessions, and registered devices." },
   "/dashboard/notifications":      { title: "Notifications",      description: "How and when you'd like to be notified." },

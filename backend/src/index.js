@@ -139,6 +139,7 @@ app.use("/api/fees",           rateLimiter, localAuthOptional, oliProxy);
 app.use("/api/disputes",       rateLimiter, localAuthOptional, oliProxy);
 app.use("/api/network-riders", rateLimiter, localAuthOptional, oliProxy);
 app.use("/api/operators",      rateLimiter, localAuthOptional, oliProxy);
+app.use("/api/carriers",       rateLimiter, localAuthOptional, oliProxy);
 // Dispatch runs — operator vehicle trip grouping
 app.use("/api/runs", rateLimiter, require("./app/runs/runs.controller"));
 

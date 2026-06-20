@@ -26,6 +26,8 @@ import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import AdminIdentityVerificationPage from "@/pages/admin/AdminIdentityVerificationPage";
 import AdminRidersPage from "@/pages/admin/AdminRidersPage";
 import CarrierDirectoryPage from "@/pages/network/CarrierDirectoryPage";
+import NetworkBookingsPage from "@/pages/network/NetworkBookingsPage";
+import IncomingBookingsPage from "@/pages/network/IncomingBookingsPage";
 import ShipmentsPage from "@/pages/logistics/ShipmentsPage";
 import ShipmentDetailPage from "@/pages/logistics/ShipmentDetailPage";
 import WaybillsPage from "@/pages/logistics/WaybillsPage";
@@ -71,6 +73,8 @@ const router = createBrowserRouter([
       { path: "staff",  element: <StaffPage /> },
       { path: "routes", element: <RoutesPage /> },
       { path: "network", element: <CarrierDirectoryPage /> },
+      { path: "bookings", element: <NetworkBookingsPage /> },
+      { path: "incoming-bookings", element: <IncomingBookingsPage /> },
       { path: "account", element: <AccountPage /> },
       { path: "notifications", element: <NotificationsPage /> },
       { path: "security", element: <SecurityPage /> },
