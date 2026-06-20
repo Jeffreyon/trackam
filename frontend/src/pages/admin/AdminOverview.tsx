@@ -15,7 +15,7 @@ import {
   type OrgOliStatus,
 } from "@/services/admin.api";
 import { walletApi, type WalletData } from "@/services/handover";
-import { formatNaira } from "@/lib/format";
+import { formatNairaRaw } from "@/lib/format";
 
 type State = {
   users: AdminUser[];
@@ -122,7 +122,7 @@ export default function AdminOverview() {
           />
           <StatCard
             label="Wallet"
-            value={state.wallet ? formatNaira(state.wallet.balance) : "—"}
+            value={state.wallet ? formatNairaRaw(state.wallet.balance) : "—"}
             icon={<Wallet className="h-3.5 w-3.5" />}
             href="/admin/dashboard/wallet"
             valueClass="text-emerald-400"
@@ -150,7 +150,7 @@ export default function AdminOverview() {
             <StatusRow
               label="Org wallet"
               connected={!!state.wallet && state.wallet.balance > 0}
-              connectedText={state.wallet ? formatNaira(state.wallet.balance) : "Funded"}
+              connectedText={state.wallet ? formatNairaRaw(state.wallet.balance) : "Funded"}
               pendingText={state.wallet ? "Top up needed" : "No wallet"}
               href="/admin/dashboard/wallet"
             />
