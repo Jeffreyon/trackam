@@ -2,7 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import {
   Loader2, CheckCircle2, Building2, Fuel, AlertTriangle, Clock, Plug, Wallet, Truck,
-  Phone, Link2, Plus, X, Eye, EyeOff, Users, Pencil,
+  Phone, Link2, Plus, X, Eye, EyeOff, Users, Pencil, ChevronDown,
 } from "lucide-react";
 import { orgSettingsApi, type OrgSettings } from "@/services/admin.api";
 import { carrierApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel } from "@/services/carrier";
@@ -45,12 +45,124 @@ const COUNTRY_STATES: Record<string, string[]> = {
   rw: ["Eastern","Kigali","Northern","Southern","Western"],
 };
 
-function countryFlag(code: string): string {
-  return COUNTRY_PHONE_CONFIGS[code]?.flag ?? "🌍";
-}
-
 function countryCurrency(code: string): string {
   return COUNTRY_CURRENCY[code] ?? "USD";
+}
+
+// Flag image via flagcdn.com (works on Windows 10 which doesn't render emoji flags)
+function FlagImg({ code, className }: { code: string; className?: string }) {
+  return (
+    <img
+      src={`https://flagcdn.com/20x15/${code.toLowerCase()}.png`}
+      srcSet={`https://flagcdn.com/40x30/${code.toLowerCase()}.png 2x`}
+      width={20}
+      height={15}
+      alt={code.toUpperCase()}
+      className={`rounded-[2px] object-cover shrink-0 ${className ?? ""}`}
+    />
+  );
+}
+
+// Custom country dropdown — renders FlagImg so it works everywhere
+function CountryDropdown({ value, onChange, className }: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = COUNTRY_OPTIONS.find((o) => o.value === value) ?? COUNTRY_OPTIONS[0];
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className={`relative ${className ?? ""}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-10 text-sm text-white focus:outline-none focus:border-orange-500/40 transition-colors"
+      >
+        <FlagImg code={selected.value} />
+        <span className="flex-1 text-left truncate">{selected.label}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-stone-500 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg border border-white/[0.08] bg-[#0f1a2a] shadow-xl overflow-hidden">
+          {COUNTRY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={[
+                "w-full flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors",
+                value === opt.value ? "bg-orange-500/10 text-orange-400" : "text-stone-300 hover:bg-white/[0.04]",
+              ].join(" ")}
+            >
+              <FlagImg code={opt.value} />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Compact version for inline use (service area row, etc.)
+function CountryDropdownCompact({ value, onChange, className }: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = COUNTRY_OPTIONS.find((o) => o.value === value) ?? COUNTRY_OPTIONS[0];
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className={`relative ${className ?? ""}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 h-[38px] text-xs text-white focus:outline-none transition-colors w-full"
+      >
+        <FlagImg code={selected.value} />
+        <span className="flex-1 text-left truncate text-stone-400">{selected.value.toUpperCase()}</span>
+        <ChevronDown className="h-3 w-3 text-stone-600 shrink-0" />
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full right-0 mt-1 w-40 rounded-lg border border-white/[0.08] bg-[#0f1a2a] shadow-xl overflow-hidden">
+          {COUNTRY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={[
+                "w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors",
+                value === opt.value ? "bg-orange-500/10 text-orange-400" : "text-stone-300 hover:bg-white/[0.04]",
+              ].join(" ")}
+            >
+              <FlagImg code={opt.value} />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Resize image to max 256px, returns base64 JPEG
@@ -163,28 +275,6 @@ function SaveRow({ saving, saved, label = "Save" }: { saving: boolean; saved: bo
         </span>
       )}
     </div>
-  );
-}
-
-// ── Country select (reused in both forms) ────────────────────────────────────
-
-function CountrySelect({ value, onChange, className }: {
-  value: string;
-  onChange: (v: string) => void;
-  className?: string;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={className ?? inputCls}
-    >
-      {COUNTRY_OPTIONS.map((opt) => (
-        <option key={opt.value} value={opt.value} className="bg-[#0c1522]">
-          {countryFlag(opt.value)}  {opt.label}
-        </option>
-      ))}
-    </select>
   );
 }
 
@@ -334,7 +424,7 @@ function BusinessIdentityForm({ country, onCountryChange }: {
         <div className="mb-4">
           <label className={labelCls}>Country</label>
           <p className={hintCls}>Determines ID scheme, phone dial code, and default currency across the platform.</p>
-          <CountrySelect value={form.country ?? "ng"} onChange={handleCountryChange} />
+          <CountryDropdown value={form.country ?? "ng"} onChange={handleCountryChange} />
         </div>
 
         {/* Phone + website */}
@@ -420,10 +510,10 @@ function ServiceAreaRow({ area, index, defaultCountry, onChange, onRemove }: {
           className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none"
         />
       )}
-      <CountrySelect
+      <CountryDropdownCompact
         value={rowCountry}
         onChange={(v) => onChange(index, "country", v)}
-        className="w-28 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-2 text-sm text-white focus:border-orange-500/50 focus:outline-none bg-[#0a1220]"
+        className="w-28"
       />
       <button
         type="button"
@@ -452,7 +542,6 @@ function CarrierNetworkForm({ country }: { country: string }) {
   const [specializations, setSpecializations] = useState<string[]>([]);
 
   const currency = countryCurrency(country);
-  const flag     = countryFlag(country);
 
   useEffect(() => {
     carrierApi.getProfile().then((p) => {
@@ -627,7 +716,7 @@ function CarrierNetworkForm({ country }: { country: string }) {
               <input type="number" min="0" step="0.01" value={baseRate} onChange={(e) => setBaseRate(e.target.value)} placeholder="0.00"
                 className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none" />
               <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 h-10 shrink-0">
-                <span className="text-base leading-none">{flag}</span>
+                <FlagImg code={country} />
                 <span className="text-xs font-semibold text-stone-300">{currency}</span>
               </div>
             </div>
