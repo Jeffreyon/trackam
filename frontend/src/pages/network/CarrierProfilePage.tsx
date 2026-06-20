@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Plus, X, Save, Send, Package, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
-import { carrierApi, networkBookingApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel, type NetworkBooking, type ReviewStatus } from "@/services/carrier";
+import { Plus, X, Save, Send, Package, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp, AlertCircle, Trash2, MapPin } from "lucide-react";
+import { carrierApi, carrierRoutesApi, networkBookingApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel, type NetworkBooking, type ReviewStatus, type CarrierRoute } from "@/services/carrier";
+import { formatNairaRaw } from "@/lib/format";
 
 const CAPACITY_OPTIONS: { value: CapacityType; label: string }[] = [
   { value: "motorcycle", label: "Motorcycle" },
@@ -198,6 +199,152 @@ const REVIEW_STATUS_CONFIG: Record<ReviewStatus, { label: string; description: s
   approved: { label: "Listed",         description: "Your profile is live in the carrier directory.",             cls: "text-emerald-400 bg-emerald-500/[0.08] border-emerald-500/20", icon: <CheckCircle2 className="h-4 w-4" /> },
   rejected: { label: "Not approved",   description: "Your profile was not approved. Update it and resubmit.",    cls: "text-red-400 bg-red-500/[0.08] border-red-500/20",           icon: <XCircle className="h-4 w-4" /> },
 };
+
+function CarrierRoutes({ pricingModel }: { pricingModel: PricingModel }) {
+  const [routes, setRoutes]   = useState<CarrierRoute[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm]       = useState({ originCity: "", destCity: "", distanceKm: "", fixedPriceNgn: "", label: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]     = useState("");
+
+  function load() {
+    carrierRoutesApi.list()
+      .then(setRoutes)
+      .finally(() => setLoading(false));
+  }
+  useEffect(() => { load(); }, []);
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.originCity.trim() || !form.destCity.trim()) {
+      setError("Origin and destination are required.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      await carrierRoutesApi.add({
+        originCity:     form.originCity.trim(),
+        destCity:       form.destCity.trim(),
+        distanceKm:     form.distanceKm     ? parseFloat(form.distanceKm)                  : null,
+        fixedPriceKobo: form.fixedPriceNgn  ? Math.round(parseFloat(form.fixedPriceNgn) * 100) : null,
+        label:          form.label.trim() || null,
+      });
+      setForm({ originCity: "", destCity: "", distanceKm: "", fixedPriceNgn: "", label: "" });
+      setShowForm(false);
+      load();
+    } catch {
+      setError("Failed to add route.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRemove(id: string) {
+    await carrierRoutesApi.remove(id);
+    load();
+  }
+
+  const inputCls = "flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors";
+
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-stone-500" />
+          <label className="text-sm font-medium text-stone-300">Routes</label>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowForm(s => !s)}
+          className="flex items-center gap-1 text-xs text-stone-500 hover:text-orange-400 transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add route
+        </button>
+      </div>
+      <p className="text-[11px] text-stone-600">
+        Define the lanes you cover. Rates are matched to bookings by origin+destination city pair.
+      </p>
+
+      {loading ? (
+        <div className="h-10 rounded-lg bg-white/[0.03] animate-pulse" />
+      ) : routes.length === 0 ? (
+        <p className="text-xs text-stone-600 italic py-1">No routes defined yet. Add one above.</p>
+      ) : (
+        <div className="space-y-2">
+          {routes.map(r => {
+            const fixedNgn = r.fixedPriceKobo != null ? r.fixedPriceKobo / 100 : null;
+            return (
+              <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/[0.03] border border-white/[0.05] px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-stone-200">
+                    {r.label || `${r.originCity} → ${r.destCity}`}
+                  </p>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    {r.label && <span className="mr-2 text-stone-600">{r.originCity} → {r.destCity}</span>}
+                    {r.distanceKm != null && <span>{r.distanceKm} km</span>}
+                    {fixedNgn != null && (
+                      <span className="ml-2 text-orange-400/80">{formatNairaRaw(fixedNgn)} fixed</span>
+                    )}
+                    {fixedNgn == null && pricingModel === "per_km" && r.distanceKm != null && (
+                      <span className="ml-2 text-stone-600">(per-km rate applies)</span>
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(r.id)}
+                  className="ml-3 shrink-0 text-stone-600 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showForm && (
+        <form onSubmit={handleAdd} className="space-y-2 pt-1 border-t border-white/[0.06]">
+          <div className="flex gap-2">
+            <input type="text" placeholder="Origin city" value={form.originCity} onChange={set("originCity")} className={inputCls} />
+            <input type="text" placeholder="Destination city" value={form.destCity} onChange={set("destCity")} className={inputCls} />
+          </div>
+          <div className="flex gap-2">
+            <input type="number" min="0" step="0.1" placeholder="Distance (km)" value={form.distanceKm} onChange={set("distanceKm")} className={inputCls} />
+            <input type="number" min="0" step="0.01" placeholder="Fixed price ₦ (optional)" value={form.fixedPriceNgn} onChange={set("fixedPriceNgn")} className={inputCls} />
+          </div>
+          <input type="text" placeholder="Label (optional, e.g. Lagos → Abuja Express)" value={form.label} onChange={set("label")} className={`${inputCls} w-full flex-none`} />
+          {error && (
+            <p className="flex items-center gap-1.5 text-xs text-red-400">
+              <AlertCircle className="h-3 w-3" />{error}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 h-8 text-xs font-medium hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+            >
+              {submitting ? "Adding…" : "Add route"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setError(""); }}
+              className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 h-8 text-xs text-stone-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
 
 export default function CarrierProfilePage() {
   const [profile, setProfile] = useState<CarrierProfile | null>(null);
@@ -424,6 +571,9 @@ export default function CarrierProfilePage() {
             </div>
           )}
         </div>
+
+        {/* Routes */}
+        <CarrierRoutes pricingModel={pricingModel} />
 
         {/* Bio */}
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3">

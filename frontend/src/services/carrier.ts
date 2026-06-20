@@ -147,6 +147,37 @@ export const networkBookingApi = {
       .then((r) => r.data),
 };
 
+// ── Carrier routes ────────────────────────────────────────────────────────────
+
+export type CarrierRoute = {
+  id: string;
+  operatorId: string;
+  label: string | null;
+  originCity: string;
+  destCity: string;
+  distanceKm: number | null;
+  fixedPriceKobo: number | null;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export const carrierRoutesApi = {
+  list: (): Promise<CarrierRoute[]> =>
+    apiClient.get<{ routes: CarrierRoute[] }>("/api/carriers/routes").then((r) => r.data.routes),
+
+  add: (data: {
+    originCity: string;
+    destCity: string;
+    distanceKm?: number | null;
+    fixedPriceKobo?: number | null;
+    label?: string | null;
+  }): Promise<CarrierRoute> =>
+    apiClient.post<CarrierRoute>("/api/carriers/routes", data).then((r) => r.data),
+
+  remove: (id: string): Promise<void> =>
+    apiClient.delete(`/api/carriers/routes/${id}`).then(() => undefined),
+};
+
 export const carrierApi = {
   getProfile: (): Promise<CarrierProfile | null> =>
     apiClient

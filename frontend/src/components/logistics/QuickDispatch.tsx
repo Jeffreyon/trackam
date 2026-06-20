@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Zap, X, ChevronRight, Loader2, AlertCircle } from "lucide-react";
-import { routesApi, ridersApi, type Route, type Rider } from "@/services/logistics";
+import { routesApi, ridersApi, type Rider } from "@/services/logistics";
 import { runsApi } from "@/services/runs";
+import { carrierRoutesApi, type CarrierRoute } from "@/services/carrier";
 
 interface Props {
   onCreated?: () => void;
@@ -10,16 +11,41 @@ interface Props {
 
 type Step = "route" | "confirm";
 
+// Normalised route item — works for both local routes and carrier routes
+type RouteOption = {
+  id: string;
+  name: string;
+  pickupLocation: string;
+  deliveryLocation: string;
+  distanceKm: number | null;
+  defaultRiderId: string | null;
+  defaultRiderFee: number | null; // Naira (already divided by 100)
+  source: "local" | "carrier";
+};
+
+function fromCarrierRoute(r: CarrierRoute): RouteOption {
+  return {
+    id:              r.id,
+    name:            r.label || `${r.originCity} → ${r.destCity}`,
+    pickupLocation:  r.originCity,
+    deliveryLocation: r.destCity,
+    distanceKm:      r.distanceKm,
+    defaultRiderId:  null,
+    defaultRiderFee: r.fixedPriceKobo != null ? r.fixedPriceKobo / 100 : null,
+    source:          "carrier",
+  };
+}
+
 export function QuickDispatch({ onCreated }: Props) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("route");
 
-  const [routes, setRoutes] = useState<Route[]>([]);
-  const [riders, setRiders] = useState<Rider[]>([]);
+  const [routes, setRoutes]   = useState<RouteOption[]>([]);
+  const [riders, setRiders]   = useState<Rider[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<RouteOption | null>(null);
   const [runName, setRunName] = useState("");
   const [riderId, setRiderId] = useState("");
   const [notes, setNotes] = useState("");
@@ -33,9 +59,27 @@ export function QuickDispatch({ onCreated }: Props) {
   useEffect(() => {
     if (open) {
       setDataLoading(true);
-      Promise.all([routesApi.list(), ridersApi.list()])
-        .then(([r, ri]) => { setRoutes(r); setRiders(ri); })
-        .finally(() => setDataLoading(false));
+      Promise.all([
+        carrierRoutesApi.list().catch(() => [] as CarrierRoute[]),
+        routesApi.list().catch(() => []),
+        ridersApi.list(),
+      ]).then(([carrierRoutes, localRoutes, ri]) => {
+        // Prefer carrier routes when defined; fall back to local routes
+        const normalized: RouteOption[] = carrierRoutes.length > 0
+          ? carrierRoutes.map(fromCarrierRoute)
+          : localRoutes.map(r => ({
+              id:              r.id,
+              name:            r.name,
+              pickupLocation:  r.pickupLocation,
+              deliveryLocation: r.deliveryLocation,
+              distanceKm:      r.distanceKm ?? null,
+              defaultRiderId:  r.defaultRiderId ?? null,
+              defaultRiderFee: r.defaultRiderFee ? r.defaultRiderFee / 100 : null,
+              source:          "local" as const,
+            }));
+        setRoutes(normalized);
+        setRiders(ri);
+      }).finally(() => setDataLoading(false));
     }
   }, [open]);
 
@@ -52,13 +96,12 @@ export function QuickDispatch({ onCreated }: Props) {
     setOpen(true);
   }
 
-  function selectRoute(route: Route) {
+  function selectRoute(route: RouteOption) {
     setSelectedRoute(route);
     setRunName(route.name);
     setRiderId(route.defaultRiderId || "");
-    setDistanceKm(route.distanceKm ? String(route.distanceKm) : "");
-    // route.defaultRiderFee is in kobo — display as NGN
-    setRiderFee(route.defaultRiderFee ? String(Math.round(route.defaultRiderFee / 100)) : "");
+    setDistanceKm(route.distanceKm != null ? String(route.distanceKm) : "");
+    setRiderFee(route.defaultRiderFee != null ? String(Math.round(route.defaultRiderFee)) : "");
     setError("");
     setStep("confirm");
   }
@@ -139,9 +182,9 @@ export function QuickDispatch({ onCreated }: Props) {
                   </div>
                 ) : routes.length === 0 ? (
                   <div className="py-12 text-center space-y-2">
-                    <p className="text-sm text-stone-500">No saved routes yet.</p>
-                    <a href="/dashboard/routes" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
-                      Set up your first route →
+                    <p className="text-sm text-stone-500">No routes defined yet.</p>
+                    <a href="/dashboard/network/profile" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                      Add routes to your carrier profile →
                     </a>
                   </div>
                 ) : (
@@ -155,13 +198,9 @@ export function QuickDispatch({ onCreated }: Props) {
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-stone-200 truncate">{route.name}</p>
                           <p className="text-xs text-stone-500 mt-0.5 truncate">
-                            {route.pickupLocation} → {route.deliveryLocation} · {route.distanceKm} km
+                            {route.pickupLocation} → {route.deliveryLocation}
+                            {route.distanceKm != null && ` · ${route.distanceKm} km`}
                           </p>
-                          {route.defaultRiderName && (
-                            <p className="text-[11px] text-stone-600 mt-0.5">
-                              Default rider: {route.defaultRiderName}
-                            </p>
-                          )}
                         </div>
                         <ChevronRight className="h-4 w-4 text-stone-600 shrink-0 group-hover:text-orange-400 transition-colors" />
                       </button>
