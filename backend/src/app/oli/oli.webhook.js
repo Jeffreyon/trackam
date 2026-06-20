@@ -72,6 +72,10 @@ async function handleEvent(event, payload) {
   switch (event) {
     case "handover.confirmed":
       return onHandoverConfirmed(payload);
+    case "booking.accepted":
+      return onBookingAccepted(payload);
+    case "carrier.tracking_update":
+      return onCarrierTrackingUpdate(payload);
     default:
       break;
   }
@@ -128,6 +132,51 @@ async function onHandoverConfirmed(payload) {
     });
   } catch (err) {
     console.error("[oli.webhook] onHandoverConfirmed error:", err.message);
+  }
+}
+
+async function onCarrierTrackingUpdate(payload) {
+  const { bookingId, carrier, trackingNumber, status, waybillId } = payload;
+  try {
+    const users = await query(`SELECT id FROM users WHERE id NOT LIKE '\\_\\_%\\_\\_' ESCAPE '\\'`);
+    for (const { id: userId } of users.rows) {
+      ssePool.publish(userId, {
+        type: "carrier_tracking_update",
+        bookingId,
+        carrier,
+        trackingNumber,
+        status,
+        waybillId: waybillId ?? null,
+      });
+    }
+  } catch (err) {
+    console.error("[oli.webhook] onCarrierTrackingUpdate SSE error:", err.message);
+  }
+}
+
+async function onBookingAccepted(payload) {
+  const { bookingId, waybillId, waybillNumber, bookerOperatorId, quotedRateKobo, goodsDescription, pickupLocation, deliveryLocation, acceptedAt } = payload;
+
+  // Notify all connected users on this carrier instance via SSE
+  // (carrier just accepted a booking — their team should know a shipment is coming)
+  try {
+    const users = await query(`SELECT id FROM users WHERE id NOT LIKE '\\_\\_%\\_\\_' ESCAPE '\\'`);
+    for (const { id: userId } of users.rows) {
+      ssePool.publish(userId, {
+        type:             "booking_accepted",
+        bookingId,
+        waybillId,
+        waybillNumber:    waybillNumber || null,
+        bookerOperatorId,
+        quotedRateKobo,
+        goodsDescription: goodsDescription || null,
+        pickupLocation:   pickupLocation   || null,
+        deliveryLocation: deliveryLocation || null,
+        acceptedAt,
+      });
+    }
+  } catch (err) {
+    console.error("[oli.webhook] onBookingAccepted SSE error:", err.message);
   }
 }
 
