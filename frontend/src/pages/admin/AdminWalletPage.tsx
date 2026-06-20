@@ -4,7 +4,7 @@ import {
   Wallet, Loader2, ArrowUpRight, ArrowDownRight, RefreshCw, ExternalLink, CheckCircle2,
 } from "lucide-react";
 import { walletApi, type WalletData, type WalletTransaction } from "@/services/handover";
-import { formatNaira, formatDateTime } from "@/lib/format";
+import { formatNairaRaw, formatDateTime } from "@/lib/format";
 import { triggerWalletRefresh } from "@/components/layout/WalletWidget";
 
 export default function AdminWalletPage() {
@@ -163,7 +163,7 @@ export default function AdminWalletPage() {
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-5">
           <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Balance</p>
           <p className="mt-2 text-3xl font-bold text-white tabular-nums">
-            {formatNaira(wallet.balance)}
+            {formatNairaRaw(wallet.balance)}
           </p>
           <p className="mt-1 text-[11px] text-stone-600">
             Updated {formatDateTime(wallet.updated_at)}
@@ -231,10 +231,10 @@ export default function AdminWalletPage() {
                   <p className={`text-xs font-semibold tabular-nums ${
                     tx.type === "credit" ? "text-emerald-400" : "text-red-400"
                   }`}>
-                    {tx.type === "credit" ? "+" : "-"}{formatNaira(tx.amount)}
+                    {tx.type === "credit" ? "+" : "-"}{formatNairaRaw(tx.amount)}
                   </p>
                   <p className="text-[10px] text-stone-600 tabular-nums">
-                    bal: {formatNaira(tx.balance_after)}
+                    bal: {formatNairaRaw(tx.balance_after)}
                   </p>
                 </div>
               </div>
