@@ -1,14 +1,80 @@
 import { useSearchParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Loader2, CheckCircle2, Building2, Fuel, AlertTriangle, Clock, Plug, Wallet, Truck,
-  Globe, Phone, Link, Image, Plus, X, Eye, EyeOff, Users,
+  Phone, Link2, Plus, X, Eye, EyeOff, Users, Pencil,
 } from "lucide-react";
 import { orgSettingsApi, type OrgSettings } from "@/services/admin.api";
 import { carrierApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel } from "@/services/carrier";
-import { COUNTRY_OPTIONS } from "@/lib/idSchemes";
+import { COUNTRY_OPTIONS, COUNTRY_PHONE_CONFIGS } from "@/lib/idSchemes";
 import AdminOliPage from "./AdminOliPage";
 import AdminWalletPage from "./AdminWalletPage";
+
+// ── Country data ─────────────────────────────────────────────────────────────
+
+const COUNTRY_CURRENCY: Record<string, string> = {
+  ng: "NGN", gh: "GHS", ke: "KES", za: "ZAR", rw: "RWF",
+};
+
+const COUNTRY_STATES: Record<string, string[]> = {
+  ng: [
+    "Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno",
+    "Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT","Gombe","Imo",
+    "Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa",
+    "Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba",
+    "Yobe","Zamfara",
+  ],
+  gh: [
+    "Ahafo","Ashanti","Bono","Bono East","Central","Eastern","Greater Accra",
+    "North East","Northern","Oti","Savannah","Upper East","Upper West","Volta",
+    "Western","Western North",
+  ],
+  ke: [
+    "Baringo","Bomet","Bungoma","Busia","Elgeyo-Marakwet","Embu","Garissa",
+    "Homa Bay","Isiolo","Kajiado","Kakamega","Kericho","Kiambu","Kilifi",
+    "Kirinyaga","Kisii","Kisumu","Kitui","Kwale","Laikipia","Lamu","Machakos",
+    "Makueni","Mandera","Marsabit","Meru","Migori","Mombasa","Murang'a","Nairobi",
+    "Nakuru","Nandi","Narok","Nyamira","Nyandarua","Nyeri","Samburu","Siaya",
+    "Taita-Taveta","Tana River","Tharaka-Nithi","Trans-Nzoia","Turkana",
+    "Uasin Gishu","Vihiga","Wajir","West Pokot",
+  ],
+  za: [
+    "Eastern Cape","Free State","Gauteng","KwaZulu-Natal","Limpopo","Mpumalanga",
+    "North West","Northern Cape","Western Cape",
+  ],
+  rw: ["Eastern","Kigali","Northern","Southern","Western"],
+};
+
+function countryFlag(code: string): string {
+  return COUNTRY_PHONE_CONFIGS[code]?.flag ?? "🌍";
+}
+
+function countryCurrency(code: string): string {
+  return COUNTRY_CURRENCY[code] ?? "USD";
+}
+
+// Resize image to max 256px, returns base64 JPEG
+async function resizeLogo(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const MAX = 256;
+        const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+        const canvas = document.createElement("canvas");
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.src = e.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
 
 const TABS = [
   { id: "carrier",    label: "Carrier Profile", icon: Truck    },
@@ -100,71 +166,105 @@ function SaveRow({ saving, saved, label = "Save" }: { saving: boolean; saved: bo
   );
 }
 
-// ── Carrier Profile tab ──────────────────────────────────────────────────────
+// ── Country select (reused in both forms) ────────────────────────────────────
 
-const CAPACITY_OPTIONS: { value: CapacityType; label: string }[] = [
-  { value: "motorcycle", label: "Motorcycle" },
-  { value: "van",        label: "Van"        },
-  { value: "truck",      label: "Truck"      },
-  { value: "fleet",      label: "Fleet"      },
-];
+function CountrySelect({ value, onChange, className }: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={className ?? inputCls}
+    >
+      {COUNTRY_OPTIONS.map((opt) => (
+        <option key={opt.value} value={opt.value} className="bg-[#0c1522]">
+          {countryFlag(opt.value)}  {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
 
-const PRICING_OPTIONS: { value: PricingModel; label: string; description: string }[] = [
-  { value: "per_shipment", label: "Per shipment", description: "Flat rate per job"    },
-  { value: "per_km",       label: "Per km",       description: "Rate per kilometre"   },
-  { value: "quoted",       label: "Quoted",       description: "Price on request"     },
-];
-
-const SPECIALIZATION_OPTIONS = [
-  "E-commerce fulfilment",
-  "Cold chain / perishables",
-  "Fragile & high-value",
-  "Bulk cargo",
-  "Last-mile delivery",
-  "Inter-city logistics",
-  "Same-day delivery",
-  "Warehousing",
-];
-
-const EMPTY_AREA: ServiceArea = { city: "", state: "", country: "NG" };
+// ── Carrier tab ──────────────────────────────────────────────────────────────
 
 function CarrierTab() {
+  const [country, setCountry] = useState("ng");
+  const [countryLoaded, setCountryLoaded] = useState(false);
+
+  useEffect(() => {
+    orgSettingsApi.get().then((s) => {
+      if ((s as Record<string, unknown>).country) {
+        setCountry((s as Record<string, unknown>).country as string);
+      }
+      setCountryLoaded(true);
+    });
+  }, []);
+
+  if (!countryLoaded) return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-72 rounded-xl bg-white/[0.03] border border-white/[0.06]" />
+      <div className="h-96 rounded-xl bg-white/[0.03] border border-white/[0.06]" />
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <BusinessIdentityForm />
-      <CarrierNetworkForm />
+      <BusinessIdentityForm country={country} onCountryChange={setCountry} />
+      <CarrierNetworkForm country={country} />
     </div>
   );
 }
 
-function BusinessIdentityForm() {
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved]   = useState(false);
-  const [loaded, setLoaded] = useState(false);
+// ── Business identity form ───────────────────────────────────────────────────
+
+function BusinessIdentityForm({ country, onCountryChange }: {
+  country: string;
+  onCountryChange: (c: string) => void;
+}) {
+  const [form, setForm]       = useState<Partial<OrgSettings>>({});
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
+  const [loaded, setLoaded]   = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string>("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     orgSettingsApi.get().then((s) => {
-      setForm(s as unknown as Record<string, string>);
+      setForm(s ?? {});
+      if (s?.logo_url) setLogoPreview(s.logo_url);
       setLoaded(true);
     });
   }, []);
 
-  function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+  function setField(k: keyof OrgSettings, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const b64 = await resizeLogo(file);
+    setLogoPreview(b64);
+    setField("logo_url", b64);
+  }
+
+  function handleCountryChange(c: string) {
+    setField("country", c);
+    onCountryChange(c);
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true); setSaved(false);
     try {
-      await orgSettingsApi.update(form as unknown as Partial<OrgSettings>);
+      await orgSettingsApi.update(form);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } finally { setSaving(false); }
   }
 
-  if (!loaded) return <div className="h-64 rounded-xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />;
-
-  const logoUrl = form.logo_url ?? "";
+  if (!loaded) return <div className="h-72 rounded-xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />;
 
   return (
     <form onSubmit={handleSave}>
@@ -173,26 +273,50 @@ function BusinessIdentityForm() {
         title="Business identity"
         description="How your company appears on waybills, receipts, and the carrier directory."
       >
-        {/* Logo */}
+        {/* Logo uploader */}
         <div className="mb-5">
-          <label className={labelCls}><span className="inline-flex items-center gap-1.5"><Image className="h-3 w-3" /> Logo</span></label>
-          <p className={hintCls}>Paste a publicly accessible image URL. Shown on waybill PDFs and your carrier profile.</p>
-          <div className="flex items-center gap-3">
-            <div className="h-14 w-14 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center shrink-0 overflow-hidden">
-              {logoUrl
-                ? <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                : <Truck className="h-6 w-6 text-stone-600" />}
+          <label className={labelCls}>Logo</label>
+          <p className={hintCls}>Shown on waybill PDFs and your carrier directory listing.</p>
+          <div className="flex items-center gap-4">
+            <div className="relative shrink-0">
+              <div className="h-16 w-16 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center overflow-hidden">
+                {logoPreview
+                  ? <img src={logoPreview} alt="Logo" className="h-full w-full object-contain" />
+                  : <Truck className="h-7 w-7 text-stone-600" />}
+              </div>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="absolute -bottom-1.5 -right-1.5 h-6 w-6 rounded-full border border-white/[0.12] bg-[#0a1220] flex items-center justify-center text-stone-400 hover:text-white hover:border-orange-500/40 transition-colors"
+                title="Upload logo"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoChange}
+              />
             </div>
-            <input
-              type="url"
-              value={logoUrl}
-              onChange={(e) => setField("logo_url", e.target.value)}
-              placeholder="https://example.com/logo.png"
-              className={inputCls}
-            />
+            <div className="text-xs text-stone-500 leading-relaxed">
+              <p>Click the pencil to upload.</p>
+              <p>PNG, JPG or SVG · max 2 MB</p>
+              {logoPreview && (
+                <button
+                  type="button"
+                  onClick={() => { setLogoPreview(""); setField("logo_url", ""); }}
+                  className="mt-1 text-red-400/70 hover:text-red-400 transition-colors"
+                >
+                  Remove logo
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* Business name + city */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={labelCls}>Business name</label>
@@ -206,24 +330,22 @@ function BusinessIdentityForm() {
           </div>
         </div>
 
+        {/* Country */}
         <div className="mb-4">
-          <label className={labelCls}><span className="inline-flex items-center gap-1.5"><Globe className="h-3 w-3" /> Country</span></label>
-          <p className={hintCls}>Determines ID scheme and phone dial code across the platform.</p>
-          <select value={form.country ?? ""} onChange={(e) => setField("country", e.target.value)} className={inputCls}>
-            {COUNTRY_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value} className="bg-[#0c1522]">{opt.label}</option>
-            ))}
-          </select>
+          <label className={labelCls}>Country</label>
+          <p className={hintCls}>Determines ID scheme, phone dial code, and default currency across the platform.</p>
+          <CountrySelect value={form.country ?? "ng"} onChange={handleCountryChange} />
         </div>
 
+        {/* Phone + website */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
           <div>
             <label className={labelCls}><span className="inline-flex items-center gap-1.5"><Phone className="h-3 w-3" /> Contact phone</span></label>
             <p className={hintCls}>WhatsApp or business line for carrier enquiries.</p>
-            <input type="tel" value={form.contact_phone ?? ""} onChange={(e) => setField("contact_phone", e.target.value)} placeholder="+234 800 000 0000" className={inputCls} />
+            <input type="tel" value={form.contact_phone ?? ""} onChange={(e) => setField("contact_phone", e.target.value)} placeholder={COUNTRY_PHONE_CONFIGS[country]?.dialCode + " 800 000 0000"} className={inputCls} />
           </div>
           <div>
-            <label className={labelCls}><span className="inline-flex items-center gap-1.5"><Link className="h-3 w-3" /> Website</span></label>
+            <label className={labelCls}><span className="inline-flex items-center gap-1.5"><Link2 className="h-3 w-3" /> Website</span></label>
             <p className={hintCls}>Public-facing website or booking page.</p>
             <input type="url" value={form.website_url ?? ""} onChange={(e) => setField("website_url", e.target.value)} placeholder="https://yourcompany.com" className={inputCls} />
           </div>
@@ -235,36 +357,121 @@ function BusinessIdentityForm() {
   );
 }
 
-function CarrierNetworkForm() {
-  const [profile, setProfile]             = useState<CarrierProfile | null>(null);
-  const [loading, setLoading]             = useState(true);
-  const [saving, setSaving]               = useState(false);
-  const [toggling, setToggling]           = useState(false);
-  const [saved, setSaved]                 = useState(false);
-  const [error, setError]                 = useState<string | null>(null);
-  const [capacityType, setCapacityType]   = useState<CapacityType>("van");
-  const [serviceAreas, setServiceAreas]   = useState<ServiceArea[]>([{ ...EMPTY_AREA }]);
-  const [pricingModel, setPricingModel]   = useState<PricingModel>("quoted");
-  const [baseRate, setBaseRate]           = useState("");
-  const [currency, setCurrency]           = useState("NGN");
-  const [bio, setBio]                     = useState("");
-  const [fleetSize, setFleetSize]         = useState("");
+// ── Carrier network form ─────────────────────────────────────────────────────
+
+const CAPACITY_OPTIONS: { value: CapacityType; label: string }[] = [
+  { value: "motorcycle", label: "Motorcycle" },
+  { value: "van",        label: "Van"        },
+  { value: "truck",      label: "Truck"      },
+  { value: "fleet",      label: "Fleet"      },
+];
+
+const PRICING_OPTIONS: { value: PricingModel; label: string; description: string }[] = [
+  { value: "per_shipment", label: "Per shipment", description: "Flat rate per job"  },
+  { value: "per_km",       label: "Per km",       description: "Rate per kilometre" },
+  { value: "quoted",       label: "Quoted",       description: "Price on request"   },
+];
+
+const SPECIALIZATION_OPTIONS = [
+  "E-commerce fulfilment",
+  "Cold chain / perishables",
+  "Fragile & high-value",
+  "Bulk cargo",
+  "Last-mile delivery",
+  "Inter-city logistics",
+  "Same-day delivery",
+  "Warehousing",
+];
+
+const EMPTY_AREA = (country: string): ServiceArea => ({ city: "", state: "", country });
+
+function ServiceAreaRow({ area, index, defaultCountry, onChange, onRemove }: {
+  area: ServiceArea;
+  index: number;
+  defaultCountry: string;
+  onChange: (i: number, field: keyof ServiceArea, value: string) => void;
+  onRemove: (i: number) => void;
+}) {
+  const rowCountry = area.country || defaultCountry;
+  const states = COUNTRY_STATES[rowCountry] ?? [];
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        placeholder="City"
+        value={area.city}
+        onChange={(e) => onChange(index, "city", e.target.value)}
+        className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none"
+      />
+      {states.length > 0 ? (
+        <select
+          value={area.state}
+          onChange={(e) => onChange(index, "state", e.target.value)}
+          className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white focus:border-orange-500/50 focus:outline-none bg-[#0a1220]"
+        >
+          <option value="" className="bg-[#0c1522]">State / Region</option>
+          {states.map((s) => <option key={s} value={s} className="bg-[#0c1522]">{s}</option>)}
+        </select>
+      ) : (
+        <input
+          placeholder="State"
+          value={area.state}
+          onChange={(e) => onChange(index, "state", e.target.value)}
+          className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none"
+        />
+      )}
+      <CountrySelect
+        value={rowCountry}
+        onChange={(v) => onChange(index, "country", v)}
+        className="w-28 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-2 text-sm text-white focus:border-orange-500/50 focus:outline-none bg-[#0a1220]"
+      />
+      <button
+        type="button"
+        onClick={() => onRemove(index)}
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-red-500/10 hover:text-red-400 transition-colors shrink-0"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function CarrierNetworkForm({ country }: { country: string }) {
+  const [profile, setProfile]                 = useState<CarrierProfile | null>(null);
+  const [loading, setLoading]                 = useState(true);
+  const [saving, setSaving]                   = useState(false);
+  const [toggling, setToggling]               = useState(false);
+  const [saved, setSaved]                     = useState(false);
+  const [error, setError]                     = useState<string | null>(null);
+  const [capacityType, setCapacityType]       = useState<CapacityType>("van");
+  const [serviceAreas, setServiceAreas]       = useState<ServiceArea[]>([EMPTY_AREA(country)]);
+  const [pricingModel, setPricingModel]       = useState<PricingModel>("quoted");
+  const [baseRate, setBaseRate]               = useState("");
+  const [bio, setBio]                         = useState("");
+  const [fleetSize, setFleetSize]             = useState("");
   const [specializations, setSpecializations] = useState<string[]>([]);
+
+  const currency = countryCurrency(country);
+  const flag     = countryFlag(country);
 
   useEffect(() => {
     carrierApi.getProfile().then((p) => {
       if (p) {
         setProfile(p);
         setCapacityType(p.capacityType);
-        setServiceAreas(p.serviceAreas.length > 0 ? p.serviceAreas : [{ ...EMPTY_AREA }]);
+        setServiceAreas(p.serviceAreas.length > 0 ? p.serviceAreas : [EMPTY_AREA(country)]);
         setPricingModel(p.pricingModel);
         setBaseRate(p.baseRate > 0 ? String(p.baseRate / 100) : "");
-        setCurrency(p.currency);
         setBio(p.bio || "");
       }
       setLoading(false);
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleAreaChange(i: number, field: keyof ServiceArea, value: string) {
+    setServiceAreas((prev) => prev.map((a, idx) => idx === i ? { ...a, [field]: value } : a));
+  }
 
   function toggleSpec(s: string) {
     setSpecializations((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]);
@@ -329,7 +536,9 @@ function CarrierNetworkForm() {
                 profile.isPublished ? "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20" : "bg-white/[0.06] text-stone-300 hover:bg-white/[0.1]",
               ].join(" ")}
             >
-              {profile.isPublished ? <><EyeOff className="h-3.5 w-3.5" /> Unpublish</> : <><Eye className="h-3.5 w-3.5" /> Publish</>}
+              {profile.isPublished
+                ? <><EyeOff className="h-3.5 w-3.5" /> Unpublish</>
+                : <><Eye className="h-3.5 w-3.5" /> Publish</>}
             </button>
           </div>
         )}
@@ -355,13 +564,7 @@ function CarrierNetworkForm() {
           <label className={labelCls}><span className="inline-flex items-center gap-1.5"><Users className="h-3 w-3" /> Fleet size</span></label>
           <p className={hintCls}>Total number of active vehicles in your operation.</p>
           <div className="flex items-center gap-2">
-            <input
-              type="number" min="1"
-              value={fleetSize}
-              onChange={(e) => setFleetSize(e.target.value)}
-              placeholder="e.g. 12"
-              className={`${inputCls} max-w-xs`}
-            />
+            <input type="number" min="1" value={fleetSize} onChange={(e) => setFleetSize(e.target.value)} placeholder="e.g. 12" className={`${inputCls} max-w-xs`} />
             <span className="text-xs text-stone-500">vehicles</span>
           </div>
         </div>
@@ -369,24 +572,20 @@ function CarrierNetworkForm() {
         {/* Service areas */}
         <div className="mb-4">
           <label className={labelCls}>Service areas</label>
-          <p className={hintCls}>Cities and states your operation covers.</p>
+          <p className={hintCls}>Cities and states your operation covers. State options update with the selected country.</p>
           <div className="space-y-2 mb-2">
             {serviceAreas.map((area, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input placeholder="City" value={area.city} onChange={(e) => setServiceAreas((prev) => prev.map((a, idx) => idx === i ? { ...a, city: e.target.value } : a))}
-                  className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none" />
-                <input placeholder="State" value={area.state} onChange={(e) => setServiceAreas((prev) => prev.map((a, idx) => idx === i ? { ...a, state: e.target.value } : a))}
-                  className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none" />
-                <input placeholder="Country" value={area.country} onChange={(e) => setServiceAreas((prev) => prev.map((a, idx) => idx === i ? { ...a, country: e.target.value } : a))}
-                  className="w-20 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none" />
-                <button type="button" onClick={() => setServiceAreas((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-red-500/10 hover:text-red-400 transition-colors shrink-0">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <ServiceAreaRow
+                key={i}
+                area={area}
+                index={i}
+                defaultCountry={country}
+                onChange={handleAreaChange}
+                onRemove={(idx) => setServiceAreas((prev) => prev.filter((_, j) => j !== idx))}
+              />
             ))}
           </div>
-          <button type="button" onClick={() => setServiceAreas((prev) => [...prev, { ...EMPTY_AREA }])}
+          <button type="button" onClick={() => setServiceAreas((prev) => [...prev, EMPTY_AREA(country)])}
             className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-orange-400 transition-colors">
             <Plus className="h-3.5 w-3.5" /> Add area
           </button>
@@ -415,22 +614,22 @@ function CarrierNetworkForm() {
           <div className="grid grid-cols-3 gap-2 mb-3">
             {PRICING_OPTIONS.map((opt) => (
               <button key={opt.value} type="button" onClick={() => setPricingModel(opt.value)}
-                className={["rounded-lg p-3 text-left transition-colors", pricingModel === opt.value ? "bg-orange-500/[0.1] ring-1 ring-orange-500/30" : "bg-white/[0.04] hover:bg-white/[0.06]"].join(" ")}>
+                className={["rounded-lg p-3 text-left transition-colors",
+                  pricingModel === opt.value ? "bg-orange-500/[0.1] ring-1 ring-orange-500/30" : "bg-white/[0.04] hover:bg-white/[0.06]",
+                ].join(" ")}>
                 <p className={`text-xs font-medium ${pricingModel === opt.value ? "text-orange-400" : "text-stone-300"}`}>{opt.label}</p>
                 <p className="text-[11px] text-stone-600 mt-0.5">{opt.description}</p>
               </button>
             ))}
           </div>
           {pricingModel !== "quoted" && (
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <input type="number" min="0" step="0.01" value={baseRate} onChange={(e) => setBaseRate(e.target.value)} placeholder="0.00"
-                  className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none" />
+            <div className="flex gap-2 items-center">
+              <input type="number" min="0" step="0.01" value={baseRate} onChange={(e) => setBaseRate(e.target.value)} placeholder="0.00"
+                className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none" />
+              <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 h-10 shrink-0">
+                <span className="text-base leading-none">{flag}</span>
+                <span className="text-xs font-semibold text-stone-300">{currency}</span>
               </div>
-              <select value={currency} onChange={(e) => setCurrency(e.target.value)}
-                className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white focus:border-orange-500/50 focus:outline-none">
-                {["NGN","USD","GHS","KES"].map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
             </div>
           )}
         </div>
@@ -438,7 +637,7 @@ function CarrierNetworkForm() {
         {/* Bio */}
         <div className="mb-5">
           <label className={labelCls}>About your operation</label>
-          <p className={hintCls}>Briefly describe your specialisation, coverage, or what makes you stand out.</p>
+          <p className={hintCls}>Briefly describe your specialisation, coverage, or what sets you apart.</p>
           <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} placeholder="Briefly describe your logistics operation..."
             className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none resize-none" />
         </div>
@@ -453,25 +652,25 @@ function CarrierNetworkForm() {
 // ── Operations tab ───────────────────────────────────────────────────────────
 
 function OperationsTab() {
-  const [form, setForm]     = useState<Record<string, string>>({});
+  const [form, setForm]     = useState<Partial<OrgSettings>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     orgSettingsApi.get().then((s) => {
-      setForm(s as unknown as Record<string, string>);
+      setForm(s ?? {});
       setLoaded(true);
     });
   }, []);
 
-  function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+  function setField(k: keyof OrgSettings, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true); setSaved(false);
     try {
-      await orgSettingsApi.update(form as unknown as Partial<OrgSettings>);
+      await orgSettingsApi.update(form);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } finally { setSaving(false); }
@@ -485,7 +684,6 @@ function OperationsTab() {
 
   return (
     <form onSubmit={handleSave} className="space-y-5">
-      {/* Cost calculation */}
       <SectionCard icon={<Fuel className="h-4 w-4 text-stone-400" />} title="Cost calculation" description="How Trackam estimates fuel costs across all dispatch runs.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -507,7 +705,6 @@ function OperationsTab() {
         </div>
       </SectionCard>
 
-      {/* Delivery targets */}
       <SectionCard icon={<Clock className="h-4 w-4 text-stone-400" />} title="Delivery targets" description="Default SLA and waybill configuration for your organisation.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -526,7 +723,6 @@ function OperationsTab() {
         </div>
       </SectionCard>
 
-      {/* Alerts */}
       <SectionCard icon={<AlertTriangle className="h-4 w-4 text-stone-400" />} title="Alerts" description="When to flag runs as at risk across the organisation.">
         <div>
           <label className={labelCls}><span className="inline-flex items-center gap-1.5"><Clock className="h-3 w-3" /> Ghost threshold</span></label>

@@ -105,6 +105,12 @@ export type OrgSettings = {
   business_name: string;
   business_city: string;
   country: string;
+  logo_url: string;
+  contact_phone: string;
+  website_url: string;
+  sla_target_hours: string;
+  waybill_prefix: string;
+  [key: string]: string;
 };
 
 export const orgSettingsApi = {
