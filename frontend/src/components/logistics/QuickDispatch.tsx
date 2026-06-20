@@ -183,8 +183,8 @@ export function QuickDispatch({ onCreated }: Props) {
                 ) : routes.length === 0 ? (
                   <div className="py-12 text-center space-y-2">
                     <p className="text-sm text-stone-500">No routes defined yet.</p>
-                    <a href="/dashboard/network/profile" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
-                      Add routes to your carrier profile →
+                    <a href="/admin/dashboard/settings?tab=carrier" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                      Add routes in Settings → Carrier Profile →
                     </a>
                   </div>
                 ) : (

@@ -2,10 +2,11 @@ import { useSearchParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import {
   Loader2, CheckCircle2, Building2, Fuel, AlertTriangle, Clock, Plug, Wallet, Truck,
-  Phone, Link2, Plus, X, Send, AlertCircle, XCircle, Users, Pencil, ChevronDown,
+  Phone, Link2, Plus, X, Send, AlertCircle, XCircle, Users, Pencil, ChevronDown, MapPin, Trash2,
 } from "lucide-react";
 import { orgSettingsApi, type OrgSettings } from "@/services/admin.api";
-import { carrierApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel, type ReviewStatus } from "@/services/carrier";
+import { carrierApi, carrierRoutesApi, type CarrierProfile, type CarrierProfileInput, type CarrierRoute, type ServiceArea, type CapacityType, type PricingModel, type ReviewStatus } from "@/services/carrier";
+import { formatNairaRaw } from "@/lib/format";
 import { COUNTRY_OPTIONS, COUNTRY_PHONE_CONFIGS } from "@/lib/idSchemes";
 import AdminOliPage from "./AdminOliPage";
 import AdminWalletPage from "./AdminWalletPage";
@@ -469,8 +470,7 @@ const CAPACITY_OPTIONS: { value: CapacityType; label: string }[] = [
 
 const PRICING_OPTIONS: { value: PricingModel; label: string; description: string }[] = [
   { value: "per_shipment", label: "Per shipment", description: "Flat rate per job"  },
-  { value: "per_km",       label: "Per km",       description: "Rate per kilometre" },
-  { value: "quoted",       label: "Quoted",       description: "Price on request"   },
+  { value: "per_km",       label: "Per km",       description: "Rate × distance"    },
 ];
 
 const SPECIALIZATION_OPTIONS = [
@@ -546,7 +546,7 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
   const [error, setError]                     = useState<string | null>(null);
   const [capacityType, setCapacityType]       = useState<CapacityType>("van");
   const [serviceAreas, setServiceAreas]       = useState<ServiceArea[]>([EMPTY_AREA(country)]);
-  const [pricingModel, setPricingModel]       = useState<PricingModel>("quoted");
+  const [pricingModel, setPricingModel]       = useState<PricingModel>("per_shipment");
   const [baseRate, setBaseRate]               = useState("");
   const [bio, setBio]                         = useState("");
   const [fleetSize, setFleetSize]             = useState("");
@@ -560,7 +560,7 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
         setProfile(p);
         setCapacityType(p.capacityType);
         setServiceAreas(p.serviceAreas.length > 0 ? p.serviceAreas : [EMPTY_AREA(country)]);
-        setPricingModel(p.pricingModel);
+        setPricingModel(p.pricingModel === "quoted" ? "per_shipment" : p.pricingModel);
         setBaseRate(p.baseRate > 0 ? String(p.baseRate / 100) : "");
         setBio(p.bio || "");
         if (p.fleetSize) setFleetSize(String(p.fleetSize));
@@ -724,7 +724,7 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
         <div className="mb-4">
           <label className={labelCls}>Pricing model</label>
           <p className={hintCls}>How you quote jobs to partner operators.</p>
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="grid grid-cols-2 gap-2 mb-3">
             {PRICING_OPTIONS.map((opt) => (
               <button key={opt.value} type="button" onClick={() => setPricingModel(opt.value)}
                 className={["rounded-lg p-3 text-left transition-colors",
@@ -747,6 +747,9 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
           )}
         </div>
 
+        {/* Routes */}
+        <CarrierRoutes pricingModel={pricingModel} />
+
         {/* Bio */}
         <div className="mb-5">
           <label className={labelCls}>About your operation</label>
@@ -759,6 +762,123 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
         <SaveRow saving={saving} saved={saved} label="Save carrier profile" />
       </SectionCard>
     </form>
+  );
+}
+
+// ── Carrier routes sub-component ─────────────────────────────────────────────
+
+function CarrierRoutes({ pricingModel }: { pricingModel: PricingModel }) {
+  const [routes, setRoutes]     = useState<CarrierRoute[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm]         = useState({ originCity: "", destCity: "", distanceKm: "", fixedPriceNgn: "", label: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr]           = useState("");
+
+  function load() {
+    carrierRoutesApi.list().then(setRoutes).finally(() => setLoading(false));
+  }
+  useEffect(() => { load(); }, []);
+
+  const setF = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.originCity.trim() || !form.destCity.trim()) { setErr("Origin and destination are required."); return; }
+    setSubmitting(true); setErr("");
+    try {
+      await carrierRoutesApi.add({
+        originCity:     form.originCity.trim(),
+        destCity:       form.destCity.trim(),
+        distanceKm:     form.distanceKm    ? parseFloat(form.distanceKm)                   : null,
+        fixedPriceKobo: form.fixedPriceNgn ? Math.round(parseFloat(form.fixedPriceNgn) * 100) : null,
+        label:          form.label.trim() || null,
+      });
+      setForm({ originCity: "", destCity: "", distanceKm: "", fixedPriceNgn: "", label: "" });
+      setShowForm(false);
+      load();
+    } catch { setErr("Failed to add route."); }
+    finally { setSubmitting(false); }
+  }
+
+  async function handleRemove(id: string) {
+    await carrierRoutesApi.remove(id);
+    load();
+  }
+
+  const inCls = "flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors";
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-stone-500" />
+          <label className={labelCls} style={{ margin: 0 }}>Routes</label>
+        </div>
+        <button type="button" onClick={() => setShowForm(s => !s)}
+          className="flex items-center gap-1 text-xs text-stone-500 hover:text-orange-400 transition-colors">
+          <Plus className="h-3.5 w-3.5" /> Add route
+        </button>
+      </div>
+      <p className={hintCls}>Define the lanes you cover. Bookings are matched to you by origin+destination city.</p>
+
+      {loading ? (
+        <div className="h-8 rounded-lg bg-white/[0.03] animate-pulse" />
+      ) : routes.length === 0 ? (
+        <p className="text-xs text-stone-600 italic py-1">No routes yet.</p>
+      ) : (
+        <div className="space-y-1.5 mb-2">
+          {routes.map(r => {
+            const fixedNgn = r.fixedPriceKobo != null ? r.fixedPriceKobo / 100 : null;
+            return (
+              <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/[0.03] border border-white/[0.05] px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-stone-200">{r.label || `${r.originCity} → ${r.destCity}`}</p>
+                  <p className="text-[11px] text-stone-500">
+                    {r.label && <span className="mr-2">{r.originCity} → {r.destCity}</span>}
+                    {r.distanceKm != null && <span>{r.distanceKm} km</span>}
+                    {fixedNgn != null && <span className="ml-2 text-orange-400/80">{formatNairaRaw(fixedNgn)} fixed</span>}
+                    {fixedNgn == null && pricingModel === "per_km" && r.distanceKm != null && (
+                      <span className="ml-2 text-stone-600">(per-km rate applies)</span>
+                    )}
+                  </p>
+                </div>
+                <button type="button" onClick={() => handleRemove(r.id)}
+                  className="ml-3 shrink-0 text-stone-600 hover:text-red-400 transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showForm && (
+        <form onSubmit={handleAdd} className="space-y-2 pt-2 mt-2 border-t border-white/[0.06]">
+          <div className="flex gap-2">
+            <input type="text" placeholder="Origin city" value={form.originCity} onChange={setF("originCity")} className={inCls} />
+            <input type="text" placeholder="Destination city" value={form.destCity} onChange={setF("destCity")} className={inCls} />
+          </div>
+          <div className="flex gap-2">
+            <input type="number" min="0" step="0.1" placeholder="Distance (km)" value={form.distanceKm} onChange={setF("distanceKm")} className={inCls} />
+            <input type="number" min="0" step="0.01" placeholder="Fixed price ₦ (optional)" value={form.fixedPriceNgn} onChange={setF("fixedPriceNgn")} className={inCls} />
+          </div>
+          <input type="text" placeholder="Label, e.g. Lagos → Abuja Express (optional)" value={form.label} onChange={setF("label")} className={`${inCls} w-full flex-none`} />
+          {err && <p className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{err}</p>}
+          <div className="flex gap-2">
+            <button type="submit" disabled={submitting}
+              className="flex-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 h-8 text-xs font-medium hover:bg-orange-500/20 transition-colors disabled:opacity-50">
+              {submitting ? "Adding…" : "Add route"}
+            </button>
+            <button type="button" onClick={() => { setShowForm(false); setErr(""); }}
+              className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 h-8 text-xs text-stone-400 hover:text-white transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 
