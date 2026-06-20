@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus, X, Save, Eye, EyeOff } from "lucide-react";
-import { carrierApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel } from "@/services/carrier";
+import { Plus, X, Save, Eye, EyeOff, Package, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { carrierApi, networkBookingApi, type CarrierProfile, type CarrierProfileInput, type ServiceArea, type CapacityType, type PricingModel, type NetworkBooking } from "@/services/carrier";
 
 const CAPACITY_OPTIONS: { value: CapacityType; label: string }[] = [
   { value: "motorcycle", label: "Motorcycle" },
@@ -55,6 +55,140 @@ function ServiceAreaRow({
       >
         <X className="h-3.5 w-3.5" />
       </button>
+    </div>
+  );
+}
+
+const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  pending:    { label: "Pending",    cls: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
+  accepted:   { label: "Accepted",   cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+  rejected:   { label: "Rejected",   cls: "text-red-400 bg-red-500/10 border-red-500/20" },
+  expired:    { label: "Expired",    cls: "text-stone-500 bg-white/5 border-white/10" },
+  in_transit: { label: "In transit", cls: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
+  delivered:  { label: "Delivered",  cls: "text-teal-400 bg-teal-500/10 border-teal-500/20" },
+};
+
+function IncomingBookings() {
+  const [bookings, setBookings]   = useState<NetworkBooking[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [expanded, setExpanded]   = useState(true);
+  const [acting, setActing]       = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const data = await networkBookingApi.listIncoming({ limit: 20 });
+      setBookings(data);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function accept(id: string) {
+    setActing(id + "_accept");
+    try {
+      await networkBookingApi.accept(id);
+      await load();
+    } catch { /* ignore */ }
+    finally { setActing(null); }
+  }
+
+  async function reject(id: string) {
+    setActing(id + "_reject");
+    try {
+      await networkBookingApi.reject(id);
+      await load();
+    } catch { /* ignore */ }
+    finally { setActing(null); }
+  }
+
+  const pending = bookings.filter(b => b.status === "pending");
+
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.03] transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <Package className="h-4 w-4 text-orange-400" />
+          <span className="text-sm font-medium text-white">Incoming bookings</span>
+          {pending.length > 0 && (
+            <span className="rounded-full bg-orange-500/15 border border-orange-500/25 text-orange-400 text-[10px] font-semibold px-1.5 py-0.5">
+              {pending.length} pending
+            </span>
+          )}
+        </div>
+        {expanded ? <ChevronUp className="h-4 w-4 text-stone-600" /> : <ChevronDown className="h-4 w-4 text-stone-600" />}
+      </button>
+
+      {expanded && (
+        <div className="border-t border-white/[0.06]">
+          {loading ? (
+            <div className="px-4 py-6 text-center text-xs text-stone-600">Loading…</div>
+          ) : bookings.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <p className="text-sm text-stone-500">No incoming bookings yet</p>
+              <p className="text-xs text-stone-700 mt-1">Bookings from other operators appear here for you to accept.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/[0.04]">
+              {bookings.map(b => {
+                const stCfg = STATUS_CONFIG[b.status] ?? { label: b.status, cls: "text-stone-400 bg-white/5 border-white/10" };
+                const rateNgn = b.quotedRateKobo / 100;
+                return (
+                  <div key={b.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-mono font-semibold text-stone-200">{b.waybillNumber ?? "—"}</p>
+                        <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${stCfg.cls}`}>{stCfg.label}</span>
+                      </div>
+                      <p className="text-[11px] text-stone-500 truncate">{b.pickupLocation} → {b.deliveryLocation}</p>
+                      {b.goodsDescription && (
+                        <p className="text-[11px] text-stone-600 truncate">{b.goodsDescription}</p>
+                      )}
+                      <div className="flex items-center gap-2 text-[11px] text-stone-500 pt-0.5">
+                        <span className="font-medium text-stone-300">₦{rateNgn.toLocaleString("en-NG")}</span>
+                        <span className="text-stone-700">·</span>
+                        <span>{b.bookerName ?? "Unknown operator"}</span>
+                        {b.expiresAt && b.status === "pending" && (
+                          <>
+                            <span className="text-stone-700">·</span>
+                            <Clock className="h-2.5 w-2.5" />
+                            <span>Expires {new Date(b.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {b.status === "pending" && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => accept(b.id)}
+                          disabled={acting !== null}
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 px-3 h-8 text-xs font-medium hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {acting === b.id + "_accept" ? "…" : "Accept"}
+                        </button>
+                        <button
+                          onClick={() => reject(b.id)}
+                          disabled={acting !== null}
+                          className="inline-flex items-center gap-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-stone-400 px-3 h-8 text-xs font-medium hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition-colors disabled:opacity-50"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          {acting === b.id + "_reject" ? "…" : "Reject"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -146,6 +280,8 @@ export default function CarrierProfilePage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
+      <IncomingBookings />
+
       <div>
         <h2 className="text-base font-semibold text-white">Carrier Profile</h2>
         <p className="text-sm text-stone-500">

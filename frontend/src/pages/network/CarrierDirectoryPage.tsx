@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { MapPin, Truck, ExternalLink } from "lucide-react";
+import { MapPin, Truck, ExternalLink, Zap } from "lucide-react";
 import { carrierApi, type CarrierDirectoryEntry } from "@/services/carrier";
+import BookShipmentModal from "@/components/logistics/BookShipmentModal";
 
 const CAPACITY_CONFIG: Record<string, { label: string; color: string; ring: string; dot: string }> = {
   motorcycle: { label: "Motorcycle", color: "text-orange-400",  ring: "ring-orange-500/25",  dot: "bg-orange-500" },
@@ -63,7 +64,7 @@ function FlagImg({ code }: { code: string }) {
   );
 }
 
-function CarrierCard({ carrier }: { carrier: CarrierDirectoryEntry }) {
+function CarrierCard({ carrier, onBook }: { carrier: CarrierDirectoryEntry; onBook: (c: CarrierDirectoryEntry) => void }) {
   const cap = CAPACITY_CONFIG[carrier.capacityType] ?? {
     label: carrier.capacityType,
     color: "text-stone-400",
@@ -147,26 +148,40 @@ function CarrierCard({ carrier }: { carrier: CarrierDirectoryEntry }) {
             </span>
           )}
         </div>
-        {carrier.frontendUrl && (
-          <a
-            href={carrier.frontendUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[11px] text-orange-400 hover:text-orange-300 transition-colors font-medium"
+        <div className="flex items-center gap-2">
+          {carrier.frontendUrl && (
+            <a
+              href={carrier.frontendUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-stone-500 hover:text-stone-300 transition-colors"
+            >
+              Visit <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+          )}
+          <button
+            onClick={() => onBook(carrier)}
+            className="flex items-center gap-1 rounded-md bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 text-[11px] font-medium text-orange-400 hover:bg-orange-500/20 transition-colors"
           >
-            Visit <ExternalLink className="h-2.5 w-2.5" />
-          </a>
-        )}
+            <Truck className="h-2.5 w-2.5" /> Book
+          </button>
+        </div>
       </div>
     </div>
   );
 }
+
+type CarrierFilter = "all" | "trackam" | "integrated";
+
+const INTEGRATED_CARRIER_IDS = ["dhl_express", "aramex", "ups", "fedex"];
 
 export default function CarrierDirectoryPage() {
   const [carriers, setCarriers] = useState<CarrierDirectoryEntry[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [search, setSearch]     = useState("");
+  const [typeFilter, setTypeFilter] = useState<CarrierFilter>("all");
+  const [bookingCarrier, setBookingCarrier] = useState<CarrierDirectoryEntry | null>(null);
 
   useEffect(() => {
     carrierApi
@@ -177,13 +192,15 @@ export default function CarrierDirectoryPage() {
   }, []);
 
   const filtered = carriers.filter((c) => {
+    const isIntegrated = INTEGRATED_CARRIER_IDS.includes(c.operatorId);
+    if (typeFilter === "trackam"    && isIntegrated)  return false;
+    if (typeFilter === "integrated" && !isIntegrated) return false;
+    if (!search) return true;
     const q = search.toLowerCase();
     return (
       c.name.toLowerCase().includes(q) ||
       c.country?.toLowerCase().includes(q) ||
-      c.serviceAreas.some(
-        (a) => a.city.toLowerCase().includes(q) || a.state?.toLowerCase().includes(q)
-      ) ||
+      c.serviceAreas.some((a) => a.city.toLowerCase().includes(q) || a.state?.toLowerCase().includes(q)) ||
       c.specializations?.some((s) => s.toLowerCase().includes(q))
     );
   });
@@ -208,17 +225,36 @@ export default function CarrierDirectoryPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <input
-          type="text"
-          placeholder="Search by name, city, country, or specialization…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none"
-        />
-        <span className="text-xs text-stone-600 shrink-0">
-          {filtered.length} carrier{filtered.length !== 1 ? "s" : ""}
-        </span>
+      {/* Filter tabs + search */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <div className="flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] p-1 self-start">
+          {(["all", "trackam", "integrated"] as CarrierFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setTypeFilter(f)}
+              className={["rounded-lg px-3 h-7 text-xs font-medium transition-all flex items-center gap-1.5",
+                typeFilter === f
+                  ? "bg-white/[0.08] text-white shadow-sm shadow-black/20"
+                  : "text-stone-500 hover:text-stone-300"].join(" ")}
+            >
+              {f === "trackam" && <Truck className="h-3 w-3" />}
+              {f === "integrated" && <Zap className="h-3 w-3" />}
+              {f === "all" ? "All carriers" : f === "trackam" ? "Trackam network" : "Integrated"}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Search name, city, specialization…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full sm:w-56 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-orange-500/50 focus:outline-none"
+          />
+          <span className="text-xs text-stone-600 shrink-0 hidden sm:block">
+            {filtered.length} carrier{filtered.length !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -227,20 +263,27 @@ export default function CarrierDirectoryPage() {
             <Truck className="h-6 w-6 text-stone-600" />
           </div>
           <p className="text-sm font-medium text-stone-400">
-            {search ? "No carriers match your search" : "No carriers in the directory yet"}
+            {search || typeFilter !== "all" ? "No carriers match your filter" : "No carriers in the directory yet"}
           </p>
           <p className="text-xs text-stone-600 mt-1">
-            {search
-              ? "Try a different city, country, or specialization."
+            {search || typeFilter !== "all"
+              ? "Try a different search or switch to All carriers."
               : "Set up your carrier profile and publish it to be the first."}
           </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((c) => (
-            <CarrierCard key={c.operatorId} carrier={c} />
+            <CarrierCard key={c.operatorId} carrier={c} onBook={setBookingCarrier} />
           ))}
         </div>
+      )}
+
+      {bookingCarrier && (
+        <BookShipmentModal
+          initialCarrierId={bookingCarrier.operatorId}
+          onClose={() => setBookingCarrier(null)}
+        />
       )}
     </div>
   );

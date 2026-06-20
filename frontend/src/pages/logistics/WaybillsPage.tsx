@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { waybillApi, type OperatorWaybill } from "@/services/handover";
 import AssignRunModal from "@/components/logistics/AssignRunModal";
+import BookShipmentModal from "@/components/logistics/BookShipmentModal";
 import { QuickShipment } from "@/components/logistics/QuickShipment";
 
 type Filter = "all" | "in_transit" | "delivered";
@@ -20,6 +21,7 @@ export default function WaybillsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [pendingAssign, setPendingAssign] = useState<PendingAssign | null>(null);
+  const [bookingWaybill, setBookingWaybill] = useState<OperatorWaybill | null>(null);
 
   async function reload() {
     const data = await waybillApi.list();
@@ -98,8 +100,8 @@ export default function WaybillsPage() {
       ) : (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
           {/* Column headers */}
-          <div className="hidden sm:grid grid-cols-[1fr_1.4fr_1fr_7rem_4rem_7rem] gap-4 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
-            {["Waybill", "Route", "Cargo", "Run", "Handovers", "Status"].map((h) => (
+          <div className="hidden sm:grid grid-cols-[1fr_1.4fr_1fr_7rem_4rem_7rem_6rem] gap-4 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+            {["Waybill", "Route", "Cargo", "Run", "Handovers", "Status", ""].map((h) => (
               <p key={h} className="text-[11px] font-medium text-stone-600 uppercase tracking-wide">{h}</p>
             ))}
           </div>
@@ -108,7 +110,7 @@ export default function WaybillsPage() {
             {filtered.map((w) => (
               <div
                 key={w.id}
-                className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_1fr_7rem_4rem_7rem] gap-2 sm:gap-4 items-center px-4 py-3.5 hover:bg-white/[0.03] transition-colors"
+                className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_1fr_7rem_4rem_7rem_6rem] gap-2 sm:gap-4 items-center px-4 py-3.5 hover:bg-white/[0.03] transition-colors"
               >
                 {/* Waybill number + date */}
                 <div className="min-w-0">
@@ -173,18 +175,36 @@ export default function WaybillsPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Book carrier */}
+                <div className="shrink-0">
+                  {!w.isDelivered && (
+                    <button
+                      onClick={() => setBookingWaybill(w)}
+                      className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-stone-400 px-2 py-0.5 text-[11px] font-medium hover:bg-orange-500/[0.1] hover:border-orange-500/20 hover:text-orange-400 transition-all whitespace-nowrap"
+                    >
+                      <Truck className="h-2.5 w-2.5" /> Book
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Assign run modal — triggered by per-row "Assign run" button */}
       {pendingAssign && (
         <AssignRunModal
           shipmentId={pendingAssign.shipmentId}
           waybillNumber={pendingAssign.waybillNumber}
           onClose={() => { setPendingAssign(null); reload(); }}
+        />
+      )}
+
+      {bookingWaybill && (
+        <BookShipmentModal
+          initialWaybill={bookingWaybill}
+          onClose={() => setBookingWaybill(null)}
         />
       )}
 
