@@ -42,6 +42,106 @@ export type CarrierProfileInput = {
   logoUrl?: string;
 };
 
+// ── Rate check ───────────────────────────────────────────────────────────────
+
+export type NetworkRate = {
+  carrier: string;               // 'dhl_express' | 'trackam'
+  carrierId?: string;            // Trackam: operator ID
+  carrierName?: string;          // Trackam: operator name
+  serviceCode: string;
+  serviceName: string;
+  totalCharge: { amount: number; currency: string };
+  transitDays: number | null;
+  deliveryBy: string | null;
+  // Trackam-only extras
+  capacityType?: CapacityType;
+  specializations?: string[];
+  logoUrl?: string | null;
+  country?: string | null;
+};
+
+// ── Network bookings ─────────────────────────────────────────────────────────
+
+export type NetworkBookingStatus = "pending" | "accepted" | "rejected" | "expired" | "in_transit" | "delivered";
+
+export type NetworkBooking = {
+  id: string;
+  waybillId: string;
+  bookerOperatorId: string;
+  carrierType: string;
+  carrierOperatorId: string | null;
+  carrierBookingId: string | null;
+  quotedRateKobo: number;
+  bookingFeeKobo: number;
+  escrowAmountKobo: number;
+  status: NetworkBookingStatus;
+  notes: string | null;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  expiresAt: string | null;
+  settledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // joined fields
+  waybillNumber?: string;
+  pickupLocation?: string;
+  deliveryLocation?: string;
+  goodsDescription?: string;
+  carrierName?: string | null;
+  bookerName?: string | null;
+};
+
+export const networkRateApi = {
+  check: (params: {
+    origin: { countryCode: string; cityName: string; postalCode?: string };
+    destination: { countryCode: string; cityName: string; postalCode?: string };
+    packages: Array<{ weight: { value: number; unit: string }; dimensions?: { length: number; width: number; height: number; unit: string } }>;
+    currency?: string;
+    shipDate?: string;
+  }): Promise<NetworkRate[]> =>
+    apiClient.post<{ rates: NetworkRate[] }>("/api/carriers/rates", params).then((r) => r.data.rates),
+};
+
+export const networkBookingApi = {
+  // Booker: create a booking
+  book: (data: {
+    carrier: string;
+    // Trackam
+    carrierId?: string;
+    waybillId?: string;
+    quotedRateKobo?: number;
+    // Integrated
+    serviceCode?: string;
+    shipper?: Record<string, unknown>;
+    recipient?: Record<string, unknown>;
+    packages?: unknown[];
+    rateSnapshot?: NetworkRate;
+  }): Promise<NetworkBooking> =>
+    apiClient.post<NetworkBooking>("/api/carriers/bookings", data).then((r) => r.data),
+
+  // Booker: list own bookings
+  listMine: (params?: { limit?: number; offset?: number }): Promise<NetworkBooking[]> =>
+    apiClient
+      .get<{ bookings: NetworkBooking[] }>("/api/carriers/network-bookings", { params })
+      .then((r) => r.data.bookings),
+
+  // Carrier: list incoming bookings
+  listIncoming: (params?: { status?: NetworkBookingStatus; limit?: number; offset?: number }): Promise<NetworkBooking[]> =>
+    apiClient
+      .get<{ bookings: NetworkBooking[] }>("/api/carriers/incoming-bookings", { params })
+      .then((r) => r.data.bookings),
+
+  // Carrier: accept
+  accept: (bookingId: string): Promise<NetworkBooking> =>
+    apiClient.patch<NetworkBooking>(`/api/carriers/network-bookings/${bookingId}/accept`).then((r) => r.data),
+
+  // Carrier: reject
+  reject: (bookingId: string, notes?: string): Promise<NetworkBooking> =>
+    apiClient
+      .patch<NetworkBooking>(`/api/carriers/network-bookings/${bookingId}/reject`, { notes })
+      .then((r) => r.data),
+};
+
 export const carrierApi = {
   getProfile: (): Promise<CarrierProfile | null> =>
     apiClient
