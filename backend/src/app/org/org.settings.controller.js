@@ -21,6 +21,11 @@ const ALLOWED_KEYS = [
   "business_name",
   "business_city",
   "country",
+  "logo_url",
+  "contact_phone",
+  "website_url",
+  "sla_target_hours",
+  "waybill_prefix",
 ];
 
 const DEFAULTS = {
@@ -30,6 +35,11 @@ const DEFAULTS = {
   business_name: "",
   business_city: "",
   country: "ng",
+  logo_url: "",
+  contact_phone: "",
+  website_url: "",
+  sla_target_hours: "48",
+  waybill_prefix: "",
 };
 
 async function ensureDefaults() {
