@@ -624,10 +624,10 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
         {/* Review status */}
         {profile && (() => {
           const REVIEW_CFG: Record<ReviewStatus, { label: string; description: string; cls: string; icon: React.ReactNode }> = {
-            draft:    { label: "Draft",          description: "Save your profile then submit it for review.",              cls: "text-stone-400 bg-white/[0.04] border-white/[0.08]",        icon: <AlertCircle className="h-3.5 w-3.5" /> },
-            pending:  { label: "Pending review", description: "Your profile is under review. We'll notify you shortly.",   cls: "text-yellow-400 bg-yellow-500/[0.07] border-yellow-500/20", icon: <Clock className="h-3.5 w-3.5" /> },
-            approved: { label: "Listed",         description: "Your profile is live in the carrier directory.",            cls: "text-emerald-400 bg-emerald-500/[0.07] border-emerald-500/20", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
-            rejected: { label: "Not approved",   description: "Your profile was not approved. Update it and resubmit.",   cls: "text-red-400 bg-red-500/[0.07] border-red-500/20",           icon: <XCircle className="h-3.5 w-3.5" /> },
+            draft:    { label: "Draft",          description: "Save your profile then submit it for review.",              cls: "text-stone-300 bg-white/[0.05] border-white/[0.10]",         icon: <AlertCircle className="h-3.5 w-3.5" /> },
+            pending:  { label: "Pending review", description: "Your profile is under review. We'll notify you shortly.",   cls: "text-yellow-300 bg-yellow-500/[0.10] border-yellow-500/30",  icon: <Clock className="h-3.5 w-3.5" /> },
+            approved: { label: "Listed",         description: "Your profile is live in the carrier directory.",            cls: "text-emerald-300 bg-emerald-500/[0.12] border-emerald-500/30", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
+            rejected: { label: "Not approved",   description: "Your profile was not approved. Update it and resubmit.",   cls: "text-red-300 bg-red-500/[0.10] border-red-500/30",            icon: <XCircle className="h-3.5 w-3.5" /> },
           };
           const rs = (profile.reviewStatus ?? "draft") as ReviewStatus;
           const cfg = REVIEW_CFG[rs];

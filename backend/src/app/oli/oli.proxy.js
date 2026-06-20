@@ -135,14 +135,19 @@ function _forward(req, res, targetUrl, apiKey, userId, httpModule, agent, switch
       }
     });
 
-    if (req.body && Object.keys(req.body).length > 0) {
+    if (req.body !== undefined && Object.keys(req.body).length > 0) {
       // Body was already parsed by express.json() — re-serialize and send
       const bodyStr = JSON.stringify(req.body);
       proxyReq.setHeader("content-type", "application/json");
       proxyReq.setHeader("content-length", Buffer.byteLength(bodyStr));
       proxyReq.end(bodyStr);
+    } else if (req.body !== undefined) {
+      // express.json() parsed the body but it was empty ({}) — stream already consumed,
+      // just end the request with no body so the switch doesn't wait forever
+      proxyReq.setHeader("content-length", "0");
+      proxyReq.end();
     } else {
-      // Pipe raw stream (for multipart, or already-empty bodies)
+      // Body parser did not run (multipart, file upload, etc.) — pipe the raw stream
       req.pipe(proxyReq, { end: true });
     }
 }
