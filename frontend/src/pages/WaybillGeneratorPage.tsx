@@ -25,6 +25,9 @@ const BLANK_FORM = {
   deliveryLocation: "",
   estimatedWeightKg: "",
   declaredValueNgn: "",
+  lengthCm: "",
+  widthCm: "",
+  heightCm: "",
 };
 
 export default function WaybillGeneratorPage() {
@@ -46,10 +49,15 @@ export default function WaybillGeneratorPage() {
     setPhase("submitting");
     setError("");
     try {
+      const { lengthCm, widthCm, heightCm, ...rest } = form;
+      const hasDims = lengthCm && widthCm && heightCm;
       const payload = {
-        ...form,
+        ...rest,
         estimatedWeightKg: form.estimatedWeightKg ? parseFloat(form.estimatedWeightKg) : undefined,
         declaredValueNgn:  form.declaredValueNgn  ? parseFloat(form.declaredValueNgn)  : undefined,
+        dimensionsCm: hasDims
+          ? { length: parseFloat(lengthCm), width: parseFloat(widthCm), height: parseFloat(heightCm) }
+          : undefined,
       };
       const waybill = await publicWaybillApi.create(payload);
       setResult(waybill);
@@ -227,6 +235,14 @@ export default function WaybillGeneratorPage() {
                 <div>
                   <label className={labelCls}>Declared value (₦)</label>
                   <input {...field("declaredValueNgn")} placeholder="e.g. 150000" inputMode="decimal" className={inputCls} />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Dimensions (cm) <span className="text-stone-600 font-normal">— L × W × H, required for carrier rates</span></label>
+                <div className="grid grid-cols-3 gap-2">
+                  <input {...field("lengthCm")} placeholder="Length" inputMode="decimal" className={inputCls} />
+                  <input {...field("widthCm")}  placeholder="Width"  inputMode="decimal" className={inputCls} />
+                  <input {...field("heightCm")} placeholder="Height" inputMode="decimal" className={inputCls} />
                 </div>
               </div>
             </div>

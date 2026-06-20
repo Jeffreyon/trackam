@@ -185,6 +185,7 @@ export interface OperatorWaybill {
   pickupLocation: string;
   deliveryLocation: string;
   estimatedWeightKg: number | null;
+  dimensionsCm: { length: number; width: number; height: number } | null;
   claimedAt: string;
   handoverCount: number;
   isDelivered: boolean;
