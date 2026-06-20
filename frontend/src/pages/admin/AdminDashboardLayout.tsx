@@ -55,7 +55,7 @@ const PAGE_TITLES: Record<string, { title: string; description: string }> = {
   "/admin/dashboard/events":   { title: "Events",         description: "Recent system events." },
   "/admin/dashboard/riders":                 { title: "Riders",                description: "Add, edit, and remove riders from your dispatch roster." },
   "/admin/dashboard/identity-verifications": { title: "Identity Verifications", description: "Approve or reject IDs submitted by riders and staff during onboarding." },
-  "/admin/dashboard/settings": { title: "Settings", description: "Organisation, network, wallet, and carrier profile settings." },
+  "/admin/dashboard/settings": { title: "Settings", description: "Carrier profile, operations, network, and wallet settings." },
 };
 
 function SidebarContent({
