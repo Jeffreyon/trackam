@@ -193,48 +193,52 @@ export default function DropoffPage() {
                 </p>
               )}
 
-              <p className="text-[11px] text-center text-stone-600 font-medium uppercase tracking-wide">
-                Select your role
-              </p>
+              {/* Deterministic action based on handover_mode set at acceptance.
+                  Falls back to both buttons for legacy bookings with null mode. */}
+              {(info.handoverMode === "pickup" || info.handoverMode === null) && (
+                <button
+                  onClick={handlePickup}
+                  disabled={isConfirming}
+                  className="w-full flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.07] hover:bg-blue-500/[0.12] px-4 h-14 text-left disabled:opacity-60 transition-all"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+                    {phase === "confirming_pickup"
+                      ? <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
+                      : <Truck className="h-4 w-4 text-blue-400" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Carrier's rider — picking up</p>
+                    <p className="text-[11px] text-stone-500">Taking custody now, delivering to hub</p>
+                  </div>
+                </button>
+              )}
 
-              {/* Pick-up — carrier's rider collecting from booker */}
-              <button
-                onClick={handlePickup}
-                disabled={isConfirming}
-                className="w-full flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.07] hover:bg-blue-500/[0.12] px-4 h-14 text-left disabled:opacity-60 transition-all"
-              >
-                <div className="h-8 w-8 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
-                  {phase === "confirming_pickup"
-                    ? <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
-                    : <Truck className="h-4 w-4 text-blue-400" />}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">Carrier's rider — picking up</p>
-                  <p className="text-[11px] text-stone-500">Taking custody now, delivering to hub</p>
-                </div>
-              </button>
-
-              {/* Drop-off — carrier's hub receiving from booker's rider */}
-              <button
-                onClick={handleDropoff}
-                disabled={isConfirming}
-                className="w-full flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.07] hover:bg-emerald-500/[0.12] px-4 h-14 text-left disabled:opacity-60 transition-all"
-              >
-                <div className="h-8 w-8 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
-                  {phase === "confirming_dropoff"
-                    ? <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
-                    : <Building2 className="h-4 w-4 text-emerald-400" />}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">Hub staff — confirming receipt</p>
-                  <p className="text-[11px] text-stone-500">Shipments delivered here by sender's rider</p>
-                </div>
-              </button>
+              {(info.handoverMode === "dropoff" || info.handoverMode === null) && (
+                <button
+                  onClick={handleDropoff}
+                  disabled={isConfirming}
+                  className="w-full flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.07] hover:bg-emerald-500/[0.12] px-4 h-14 text-left disabled:opacity-60 transition-all"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+                    {phase === "confirming_dropoff"
+                      ? <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
+                      : <Building2 className="h-4 w-4 text-emerald-400" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Hub staff — confirming receipt</p>
+                    <p className="text-[11px] text-stone-500">Shipments delivered here by sender's rider</p>
+                  </div>
+                </button>
+              )}
 
               <div className="flex items-start gap-2 rounded-lg bg-white/[0.03] border border-white/[0.06] px-3 py-2.5">
                 <UserCheck className="h-4 w-4 text-stone-600 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-stone-500 leading-relaxed">
-                  Both actions record an OLI custody transfer and debit the sender's handover fee. If picking up, complete the chain at your hub via join-leg.
+                  {info.handoverMode === "pickup"
+                    ? "Scanning records an OLI custody transfer and debits the sender's handover fee. Complete the chain at your hub via join-leg."
+                    : info.handoverMode === "dropoff"
+                    ? "Scanning records an OLI custody transfer to your hub and debits the sender's handover fee."
+                    : "Both actions record an OLI custody transfer and debit the sender's handover fee. If picking up, complete the chain at your hub via join-leg."}
                 </p>
               </div>
             </>

@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
-import { Loader2, ArrowRight, CheckCircle2, Clock, XCircle, AlertCircle, Globe, QrCode } from "lucide-react";
-import { runBookingApi, type RunBooking } from "@/services/carrier";
+import {
+  Loader2, ArrowRight, CheckCircle2, Clock, XCircle, AlertCircle,
+  Globe, QrCode, Truck, Building2,
+} from "lucide-react";
+import { runBookingApi, type RunBooking, type HandoverMode } from "@/services/carrier";
 
 type Filter = "pending" | "accepted" | "all";
 
 function fmt(kobo: number) {
   return `₦${(kobo / 100).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
 }
+
+const MODE_CFG: Record<HandoverMode, { label: string; sub: string; Icon: typeof Truck; color: string; border: string; bg: string }> = {
+  pickup:  { label: "We'll pick up",        sub: "Carrier's rider collects from sender",   Icon: Truck,     color: "text-blue-400",    border: "border-blue-500/20",    bg: "bg-blue-500/[0.07]" },
+  dropoff: { label: "Sender drops off here", sub: "Sender's rider delivers to our hub",    Icon: Building2, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-500/[0.07]" },
+};
 
 export default function IncomingBookingsPage() {
   const [bookings, setBookings]       = useState<RunBooking[]>([]);
@@ -17,6 +25,10 @@ export default function IncomingBookingsPage() {
   const [rejectNotes, setRejectNotes] = useState("");
   const [error, setError]             = useState<string | null>(null);
 
+  // Accept flow: which booking is in "pick a mode" state
+  const [acceptingId, setAcceptingId]     = useState<string | null>(null);
+  const [selectedMode, setSelectedMode]   = useState<HandoverMode | null>(null);
+
   useEffect(() => {
     const status = filter === "all" ? undefined : (filter as "pending" | "accepted");
     setLoading(true);
@@ -26,11 +38,19 @@ export default function IncomingBookingsPage() {
       .finally(() => setLoading(false));
   }, [filter]);
 
-  async function handleAccept(bookingId: string) {
-    setActing(bookingId);
+  function startAccept(bookingId: string) {
+    setAcceptingId(bookingId);
+    setSelectedMode(null);
+  }
+
+  async function confirmAccept() {
+    if (!acceptingId || !selectedMode) return;
+    setActing(acceptingId);
     try {
-      const updated = await runBookingApi.accept(bookingId);
-      setBookings((prev) => prev.map((b) => b.id === bookingId ? updated : b));
+      const updated = await runBookingApi.accept(acceptingId, selectedMode);
+      setBookings((prev) => prev.map((b) => b.id === acceptingId ? updated : b));
+      setAcceptingId(null);
+      setSelectedMode(null);
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
       alert(msg || "Failed to accept booking.");
@@ -90,9 +110,11 @@ export default function IncomingBookingsPage() {
           const isPending  = b.status === "pending";
           const isAccepted = b.status === "accepted";
           const isActing   = acting === b.id;
+          const isPickingMode = acceptingId === b.id;
           const dropoffUrl = b.dropoffToken
             ? `${window.location.origin}/dropoff/${b.dropoffToken}`
             : null;
+          const modeCfg = b.handoverMode ? MODE_CFG[b.handoverMode] : null;
 
           return (
             <div key={b.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
@@ -118,8 +140,7 @@ export default function IncomingBookingsPage() {
                   "bg-red-500/10 text-red-400 border-red-500/20"
                 }`}>
                   {b.status === "pending"  && <Clock className="h-3 w-3" />}
-                  {b.status === "accepted" && <CheckCircle2 className="h-3 w-3" />}
-                  {b.status === "received" && <CheckCircle2 className="h-3 w-3" />}
+                  {(b.status === "accepted" || b.status === "received") && <CheckCircle2 className="h-3 w-3" />}
                   {b.status === "rejected" && <XCircle className="h-3 w-3" />}
                   {b.status === "pending"  ? "Pending" :
                    b.status === "accepted" ? "Accepted" :
@@ -127,19 +148,64 @@ export default function IncomingBookingsPage() {
                 </span>
               </div>
 
-              {/* Rate + actions */}
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="text-xs text-stone-500">
-                  Rate: <span className="text-stone-300 font-medium">{fmt(b.quotedRateKobo)}</span>
-                  <span className="mx-2 text-stone-700">·</span>
-                  You receive: <span className="text-emerald-400 font-medium">{fmt(b.quotedRateKobo - b.bookingFeeKobo)}</span>
+              {/* Handover mode badge (once accepted) */}
+              {isAccepted && modeCfg && (
+                <div className={`flex items-center gap-2 rounded-lg border ${modeCfg.border} ${modeCfg.bg} px-3 py-2`}>
+                  <modeCfg.Icon className={`h-3.5 w-3.5 shrink-0 ${modeCfg.color}`} />
+                  <div>
+                    <p className={`text-xs font-semibold ${modeCfg.color}`}>{modeCfg.label}</p>
+                    <p className="text-[11px] text-stone-500">{modeCfg.sub}</p>
+                  </div>
                 </div>
+              )}
 
-                <div className="flex items-center gap-2">
+              {/* Rate */}
+              <div className="text-xs text-stone-500">
+                Rate: <span className="text-stone-300 font-medium">{fmt(b.quotedRateKobo)}</span>
+                <span className="mx-2 text-stone-700">·</span>
+                You receive: <span className="text-emerald-400 font-medium">{fmt(b.quotedRateKobo - b.bookingFeeKobo)}</span>
+              </div>
+
+              {/* Mode picker (inline, shown when carrier clicks Accept) */}
+              {isPending && isPickingMode && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-[11px] text-stone-500 font-medium">How will you receive these shipments?</p>
+                  {(Object.entries(MODE_CFG) as [HandoverMode, typeof MODE_CFG[HandoverMode]][]).map(([mode, cfg]) => (
+                    <button key={mode} type="button" onClick={() => setSelectedMode(mode)}
+                      className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                        selectedMode === mode
+                          ? `${cfg.border} ${cfg.bg}`
+                          : "border-white/[0.06] bg-white/[0.03] hover:border-white/[0.1]"
+                      }`}>
+                      <cfg.Icon className={`h-4 w-4 shrink-0 ${selectedMode === mode ? cfg.color : "text-stone-600"}`} />
+                      <div>
+                        <p className={`text-xs font-semibold ${selectedMode === mode ? cfg.color : "text-stone-300"}`}>{cfg.label}</p>
+                        <p className="text-[11px] text-stone-500">{cfg.sub}</p>
+                      </div>
+                      {selectedMode === mode && <CheckCircle2 className={`h-3.5 w-3.5 ml-auto shrink-0 ${cfg.color}`} />}
+                    </button>
+                  ))}
+                  <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={() => { setAcceptingId(null); setSelectedMode(null); }}
+                      className="flex-none rounded-lg border border-white/10 bg-white/[0.04] px-3 h-8 text-xs text-stone-400 hover:text-white hover:bg-white/[0.07] transition-all">
+                      Cancel
+                    </button>
+                    <button type="button" onClick={confirmAccept} disabled={!selectedMode || isActing}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 h-8 text-xs font-semibold text-white disabled:opacity-50 transition-all">
+                      {isActing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                      Confirm acceptance
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions row */}
+              {!isPickingMode && (
+                <div className="flex items-center justify-end gap-2">
                   {isAccepted && dropoffUrl && (
                     <button type="button" onClick={() => navigator.clipboard.writeText(dropoffUrl)}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/[0.08] px-3 h-8 text-xs font-medium text-blue-300 hover:bg-blue-500/[0.12] transition-all">
-                      <QrCode className="h-3 w-3" /> Copy drop-off link
+                      <QrCode className="h-3 w-3" /> Copy handover link
                     </button>
                   )}
 
@@ -149,22 +215,20 @@ export default function IncomingBookingsPage() {
                         onClick={() => { setRejectId(b.id); setRejectNotes(""); }}
                         disabled={isActing}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 h-8 text-xs font-medium text-stone-300 hover:bg-white/[0.07] disabled:opacity-60 transition-all">
-                        {isActing && rejectId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                        Decline
+                        <XCircle className="h-3 w-3" /> Decline
                       </button>
                       <button type="button"
-                        onClick={() => handleAccept(b.id)}
+                        onClick={() => startAccept(b.id)}
                         disabled={isActing}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-3 h-8 text-xs font-semibold text-white disabled:opacity-60 transition-all">
-                        {isActing && rejectId !== b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                        Accept
+                        <CheckCircle2 className="h-3 w-3" /> Accept
                       </button>
                     </>
                   )}
                 </div>
-              </div>
+              )}
 
-              {b.acceptedAt && (
+              {b.acceptedAt && !isPickingMode && (
                 <p className="text-[11px] text-stone-600">
                   Accepted {new Date(b.acceptedAt).toLocaleDateString("en-NG", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                 </p>

@@ -201,6 +201,7 @@ export type RunBooking = {
   expiresAt: string | null;
   receivedAt: string | null;
   pickedUpAt: string | null;    // set when carrier's rider scanned at booker's location
+  handoverMode: HandoverMode | null;  // set at acceptance; determines pickup vs drop-off path
   createdAt: string;
   updatedAt: string;
   // joined
@@ -210,6 +211,8 @@ export type RunBooking = {
   waybillCount?: number;
 };
 
+export type HandoverMode = "pickup" | "dropoff";
+
 export type DropoffInfo = {
   id: string;
   status: RunBookingStatus;
@@ -218,6 +221,7 @@ export type DropoffInfo = {
   originCity: string;
   destCity: string;
   receivedAt: string | null;
+  handoverMode: HandoverMode | null;
   waybills: Array<{ waybillId: string; waybillNumber: string | null }>;
 };
 
@@ -241,6 +245,7 @@ function toRunBooking(raw: Record<string, unknown>): RunBooking {
     expiresAt:             (raw.expires_at as string | null) ?? null,
     receivedAt:            (raw.received_at as string | null) ?? null,
     pickedUpAt:            (raw.picked_up_at as string | null) ?? null,
+    handoverMode:          (raw.handover_mode as HandoverMode | null) ?? null,
     createdAt:             raw.created_at as string,
     updatedAt:             raw.updated_at as string,
     bookerName:            (raw.booker_name as string | undefined) ?? undefined,
@@ -281,9 +286,9 @@ export const runBookingApi = {
       .get<{ bookings: Record<string, unknown>[] }>("/api/carriers/incoming-run-bookings", { params })
       .then((r) => r.data.bookings.map(toRunBooking)),
 
-  accept: (bookingId: string): Promise<RunBooking> =>
+  accept: (bookingId: string, handoverMode: HandoverMode): Promise<RunBooking> =>
     apiClient
-      .patch<Record<string, unknown>>(`/api/carriers/run-bookings/${bookingId}/accept`)
+      .patch<Record<string, unknown>>(`/api/carriers/run-bookings/${bookingId}/accept`, { handoverMode })
       .then((r) => toRunBooking(r.data)),
 
   reject: (bookingId: string, notes?: string): Promise<RunBooking> =>
