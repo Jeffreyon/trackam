@@ -455,92 +455,116 @@ export default function DispatchRunDetailPage() {
           </button>
         )}
 
-        {(run.status === "loading" || run.status === "in_transit") && run.legs.length > 0 && run.legs.some((l) => l.handoverCount === 0) && (
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              {/* Internal handover — always present */}
-              <button
-                onClick={handleHandoverToDriver}
-                disabled={handoverWorking}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/[0.08] text-purple-300 h-10 text-sm font-medium hover:bg-purple-500/[0.12] transition-all disabled:opacity-60"
-              >
-                {handoverWorking
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <QrCode className="h-4 w-4" />}
-                Hand to driver
-              </button>
+        {(run.status === "loading" || run.status === "in_transit") && run.legs.length > 0 && (() => {
+          const hasUnhandled = run.legs.some((l) => l.handoverCount === 0);
+          const allHandedOver = !hasUnhandled;
+          const isDropoffAccepted = runBooking?.status === "accepted" && !!runBooking.dropoffToken;
+          // Show this block while there are unhandled legs, or while a carrier action is still pending
+          const show = hasUnhandled || isDropoffAccepted;
+          if (!show) return null;
 
-              {/* Carrier slot — state-driven */}
-              {!runBooking ? (
-                <button
-                  onClick={openDispatch}
-                  className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 px-3 text-sm font-medium hover:bg-blue-500/[0.12] transition-all"
-                >
-                  <Globe className="h-4 w-4 shrink-0" />
-                  <div className="text-left min-w-0">
-                    <p className="text-xs font-semibold truncate">Dispatch to carrier</p>
-                  </div>
-                </button>
-              ) : runBooking.status === "pending" ? (
-                <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-3 h-10 cursor-default">
-                  <Clock className="h-4 w-4 text-amber-400 shrink-0" />
-                  <div className="text-left min-w-0">
-                    <p className="text-xs font-semibold text-amber-300 truncate">Awaiting acceptance</p>
-                    <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
-                  </div>
-                </div>
-              ) : runBooking.status === "accepted" && runBooking.dropoffToken ? (
-                runBooking.handoverMode === "pickup" ? (
+          return (
+            <div className="space-y-2">
+              <div className={`grid gap-2 ${hasUnhandled ? "grid-cols-2" : "grid-cols-1"}`}>
+
+                {/* Internal handover — only while some legs still unhandled */}
+                {hasUnhandled && (
                   <button
-                    onClick={() => setDropoffQrOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 px-3 hover:bg-blue-500/[0.12] transition-all"
+                    onClick={handleHandoverToDriver}
+                    disabled={handoverWorking}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/[0.08] text-purple-300 h-10 text-sm font-medium hover:bg-purple-500/[0.12] transition-all disabled:opacity-60"
                   >
-                    <Truck className="h-4 w-4 shrink-0" />
+                    {handoverWorking
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <QrCode className="h-4 w-4" />}
+                    Hand to driver
+                  </button>
+                )}
+
+                {/* Carrier slot — state-driven */}
+                {!runBooking ? (
+                  <button
+                    onClick={openDispatch}
+                    className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 px-3 text-sm font-medium hover:bg-blue-500/[0.12] transition-all"
+                  >
+                    <Globe className="h-4 w-4 shrink-0" />
                     <div className="text-left min-w-0">
-                      <p className="text-xs font-semibold truncate">Show Pickup QR</p>
-                      <p className="text-[10px] text-stone-500 truncate">Rider scans at your location</p>
+                      <p className="text-xs font-semibold truncate">Dispatch to carrier</p>
                     </div>
                   </button>
-                ) : (
-                  <button
-                    onClick={() => setDropoffQrOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-300 h-10 px-3 hover:bg-emerald-500/[0.12] transition-all"
-                  >
-                    <Building2 className="h-4 w-4 shrink-0" />
+                ) : runBooking.status === "pending" ? (
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-3 h-10 cursor-default">
+                    <Clock className="h-4 w-4 text-amber-400 shrink-0" />
                     <div className="text-left min-w-0">
-                      <p className="text-xs font-semibold truncate">Drop off at Carrier</p>
-                      <p className="text-[10px] text-stone-500 truncate">Show QR at {runBooking.carrierName ?? "hub"}</p>
+                      <p className="text-xs font-semibold text-amber-300 truncate">Awaiting acceptance</p>
+                      <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
+                    </div>
+                  </div>
+                ) : runBooking.status === "accepted" && runBooking.dropoffToken ? (
+                  runBooking.handoverMode === "pickup" ? (
+                    // Pickup: always unlocked — carrier's rider comes to the booker
+                    <button
+                      onClick={() => setDropoffQrOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 px-3 hover:bg-blue-500/[0.12] transition-all"
+                    >
+                      <Truck className="h-4 w-4 shrink-0" />
+                      <div className="text-left min-w-0">
+                        <p className="text-xs font-semibold truncate">Show Pickup QR</p>
+                        <p className="text-[10px] text-stone-500 truncate">Carrier rider scans at your location</p>
+                      </div>
+                    </button>
+                  ) : allHandedOver ? (
+                    // Dropoff: unlocked only after rider has custody of all waybills
+                    <button
+                      onClick={() => setDropoffQrOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-300 h-10 px-3 hover:bg-emerald-500/[0.12] transition-all"
+                    >
+                      <Building2 className="h-4 w-4 shrink-0" />
+                      <div className="text-left min-w-0">
+                        <p className="text-xs font-semibold truncate">Drop off at Carrier</p>
+                        <p className="text-[10px] text-stone-500 truncate">Show QR at {runBooking.carrierName ?? "hub"}</p>
+                      </div>
+                    </button>
+                  ) : (
+                    // Dropoff: locked until rider has taken custody
+                    <div className="inline-flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 h-10 cursor-default opacity-60">
+                      <Building2 className="h-4 w-4 text-stone-600 shrink-0" />
+                      <div className="text-left min-w-0">
+                        <p className="text-xs font-semibold text-stone-500 truncate">Drop off at Carrier</p>
+                        <p className="text-[10px] text-stone-600 truncate">Hand to rider first</p>
+                      </div>
+                    </div>
+                  )
+                ) : runBooking.status === "received" ? (
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 h-10 cursor-default">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <div className="text-left min-w-0">
+                      <p className="text-xs font-semibold text-emerald-300 truncate">Received by carrier</p>
+                      <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
+                    </div>
+                  </div>
+                ) : runBooking.status === "rejected" ? (
+                  <button
+                    onClick={openDispatch}
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.06] text-red-300 h-10 px-3 hover:bg-red-500/[0.1] transition-all"
+                  >
+                    <XCircle className="h-4 w-4 shrink-0" />
+                    <div className="text-left min-w-0">
+                      <p className="text-xs font-semibold truncate">Declined · Rebook</p>
+                      <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
                     </div>
                   </button>
-                )
-              ) : runBooking.status === "received" ? (
-                <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 h-10 cursor-default">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <div className="text-left min-w-0">
-                    <p className="text-xs font-semibold text-emerald-300 truncate">Received by carrier</p>
-                    <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
-                  </div>
-                </div>
-              ) : runBooking.status === "rejected" ? (
-                <button
-                  onClick={openDispatch}
-                  className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.06] text-red-300 h-10 px-3 hover:bg-red-500/[0.1] transition-all"
-                >
-                  <XCircle className="h-4 w-4 shrink-0" />
-                  <div className="text-left min-w-0">
-                    <p className="text-xs font-semibold truncate">Declined · Rebook</p>
-                    <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
-                  </div>
-                </button>
-              ) : null}
+                ) : null}
+              </div>
+
+              {handoverError && (
+                <p className="flex items-center gap-1.5 text-[11px] text-red-400 bg-red-500/[0.1] border border-red-500/20 rounded-lg px-3 py-2">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />{handoverError}
+                </p>
+              )}
             </div>
-            {handoverError && (
-              <p className="flex items-center gap-1.5 text-[11px] text-red-400 bg-red-500/[0.1] border border-red-500/20 rounded-lg px-3 py-2">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0" />{handoverError}
-              </p>
-            )}
-          </div>
-        )}
+          );
+        })()}
 
         {run.status === "in_transit" && run.legs.length > 0 &&
           run.legs.every((l) => ["delivered", "failed", "ghosted"].includes(l.status)) && (
