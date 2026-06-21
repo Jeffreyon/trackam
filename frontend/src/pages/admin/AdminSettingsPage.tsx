@@ -862,8 +862,7 @@ function CarrierRoutes({ pricingModel }: { pricingModel: PricingModel }) {
     setErr("");
   }
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleAdd() {
     if (!form.originCity.trim() || !form.destCity.trim()) {
       setErr("Origin and destination are required.");
       return;
@@ -971,8 +970,8 @@ function CarrierRoutes({ pricingModel }: { pricingModel: PricingModel }) {
               </button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleAdd} className="p-5">
+            {/* Body */}
+            <div className="p-5">
               {/* Cities row */}
               <div className={fieldCls}>
                 <label className={fieldLabel}>Route</label>
@@ -1063,14 +1062,15 @@ function CarrierRoutes({ pricingModel }: { pricingModel: PricingModel }) {
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleAdd}
                   disabled={submitting}
                   className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 h-10 text-xs font-semibold text-white shadow-sm shadow-orange-500/20 hover:shadow-orange-500/30 disabled:opacity-60 transition-all"
                 >
                   {submitting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Adding…</> : "Add route"}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
