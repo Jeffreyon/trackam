@@ -25,6 +25,7 @@ import AdminRolesPage from "@/pages/admin/AdminRolesPage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import AdminIdentityVerificationPage from "@/pages/admin/AdminIdentityVerificationPage";
 import AdminRidersPage from "@/pages/admin/AdminRidersPage";
+import AdminStaffPage from "@/pages/admin/AdminStaffPage";
 import CarrierDirectoryPage from "@/pages/network/CarrierDirectoryPage";
 import NetworkBookingsPage from "@/pages/network/NetworkBookingsPage";
 import IncomingBookingsPage from "@/pages/network/IncomingBookingsPage";
@@ -94,6 +95,7 @@ const router = createBrowserRouter([
       { path: "oli",    element: <Navigate to="/admin/dashboard/settings?tab=network" replace /> },
       { path: "wallet", element: <Navigate to="/admin/dashboard/settings?tab=wallet"  replace /> },
       { path: "riders", element: <AdminRidersPage /> },
+      { path: "staff", element: <AdminStaffPage /> },
       { path: "identity-verifications", element: <AdminIdentityVerificationPage /> },
     ],
   },

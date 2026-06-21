@@ -37,6 +37,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
       { to: "/admin/dashboard/roles",                 label: "Roles",            icon: ShieldCheck,     end: false },
       { to: "/admin/dashboard/events",                label: "Events",           icon: Activity,        end: false },
       { to: "/admin/dashboard/riders",                 label: "Riders",           icon: Bike,            end: false },
+      { to: "/admin/dashboard/staff",                  label: "Staff",            icon: Users,           end: false },
       { to: "/admin/dashboard/identity-verifications",label: "Identity IDs",     icon: ShieldCheck,     end: false },
     ],
   },
@@ -54,6 +55,7 @@ const PAGE_TITLES: Record<string, { title: string; description: string }> = {
   "/admin/dashboard/roles":    { title: "Roles",          description: "Available RBAC roles and their permissions." },
   "/admin/dashboard/events":   { title: "Events",         description: "Recent system events." },
   "/admin/dashboard/riders":                 { title: "Riders",                description: "Add, edit, and remove riders from your dispatch roster." },
+  "/admin/dashboard/staff":                  { title: "Staff",                  description: "Manage staff accounts, ID documents, and verify identities." },
   "/admin/dashboard/identity-verifications": { title: "Identity Verifications", description: "Approve or reject IDs submitted by riders and staff during onboarding." },
   "/admin/dashboard/settings": { title: "Settings", description: "Carrier profile, operations, network, and wallet settings." },
 };
