@@ -15,11 +15,14 @@ function fmt(kobo: number) {
 
 function StatusBadge({ status }: { status: RunBooking["status"] }) {
   const cfgs = {
-    pending:  { label: "Awaiting acceptance", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20",    Icon: Clock },
-    accepted: { label: "Accepted",            cls: "bg-blue-500/10 text-blue-400 border-blue-500/20",       Icon: CheckCircle2 },
-    received: { label: "Received",            cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", Icon: CheckCircle2 },
-    rejected: { label: "Rejected",            cls: "bg-red-500/10 text-red-400 border-red-500/20",          Icon: XCircle },
-  };
+    pending:    { label: "Awaiting acceptance", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20",    Icon: Clock },
+    accepted:   { label: "Accepted",            cls: "bg-blue-500/10 text-blue-400 border-blue-500/20",       Icon: CheckCircle2 },
+    received:   { label: "Received",            cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", Icon: CheckCircle2 },
+    dispatched: { label: "Dispatched",          cls: "bg-blue-500/10 text-blue-400 border-blue-500/20",       Icon: CheckCircle2 },
+    delivered:  { label: "Delivered",           cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", Icon: CheckCircle2 },
+    expired:    { label: "Expired",             cls: "bg-stone-500/10 text-stone-400 border-stone-500/20",    Icon: XCircle },
+    rejected:   { label: "Rejected",            cls: "bg-red-500/10 text-red-400 border-red-500/20",          Icon: XCircle },
+  } satisfies Record<RunBookingStatus, { label: string; cls: string; Icon: typeof Clock }>;
   const { label, cls, Icon } = cfgs[status] ?? cfgs.pending;
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium shrink-0 ${cls}`}>

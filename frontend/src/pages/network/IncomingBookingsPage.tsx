@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Loader2, ArrowRight, CheckCircle2, Clock, XCircle, AlertCircle,
-  Globe, QrCode, Truck, Building2, Package,
+  Globe, Truck, Building2, Package,
 } from "lucide-react";
 import { runBookingApi, type RunBooking, type HandoverMode } from "@/services/carrier";
 import JoinLegModal from "@/components/logistics/JoinLegModal";
