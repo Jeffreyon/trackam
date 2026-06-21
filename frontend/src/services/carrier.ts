@@ -311,9 +311,9 @@ export const runBookingApi = {
       .post<{ confirmedCount: number; alreadyReceived?: boolean; viaPickup: boolean }>(`/api/carriers/run-bookings/dropoff/${token}/pickup`)
       .then((r) => r.data),
 
-  receive: (bookingId: string): Promise<{ confirmedCount: number; alreadyReceived?: boolean; totalFeeNaira: number }> =>
+  receive: (bookingId: string): Promise<{ received?: boolean; alreadyReceived?: boolean; receivedAt: string | null }> =>
     apiClient
-      .post<{ confirmedCount: number; alreadyReceived?: boolean; totalFeeNaira: number }>(`/api/carriers/run-bookings/${bookingId}/receive`)
+      .post<{ received?: boolean; alreadyReceived?: boolean; receivedAt: string | null }>(`/api/carriers/run-bookings/${bookingId}/receive`)
       .then((r) => r.data),
 };
 
