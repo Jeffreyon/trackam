@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MapPin, Truck, ExternalLink, Zap } from "lucide-react";
 import { carrierApi, type CarrierDirectoryEntry } from "@/services/carrier";
-import BookShipmentModal from "@/components/logistics/BookShipmentModal";
+import DispatchRunModal from "@/components/logistics/DispatchRunModal";
 
 const CAPACITY_CONFIG: Record<string, { label: string; color: string; ring: string; dot: string }> = {
   motorcycle: { label: "Motorcycle", color: "text-orange-400",  ring: "ring-orange-500/25",  dot: "bg-orange-500" },
@@ -161,9 +161,9 @@ function CarrierCard({ carrier, onBook }: { carrier: CarrierDirectoryEntry; onBo
           )}
           <button
             onClick={() => onBook(carrier)}
-            className="flex items-center gap-1 rounded-md bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 text-[11px] font-medium text-orange-400 hover:bg-orange-500/20 transition-colors"
+            className="flex items-center gap-1 rounded-md bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 text-[11px] font-medium text-blue-400 hover:bg-blue-500/20 transition-colors"
           >
-            <Truck className="h-2.5 w-2.5" /> Book
+            <Truck className="h-2.5 w-2.5" /> Dispatch run
           </button>
         </div>
       </div>
@@ -280,8 +280,8 @@ export default function CarrierDirectoryPage() {
       )}
 
       {bookingCarrier && (
-        <BookShipmentModal
-          initialCarrier={bookingCarrier}
+        <DispatchRunModal
+          carrier={bookingCarrier}
           onClose={() => setBookingCarrier(null)}
         />
       )}
