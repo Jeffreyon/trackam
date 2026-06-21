@@ -200,6 +200,7 @@ export type RunBooking = {
   rejectedAt: string | null;
   expiresAt: string | null;
   receivedAt: string | null;
+  pickedUpAt: string | null;    // set when carrier's rider scanned at booker's location
   createdAt: string;
   updatedAt: string;
   // joined
@@ -239,6 +240,7 @@ function toRunBooking(raw: Record<string, unknown>): RunBooking {
     rejectedAt:            (raw.rejected_at as string | null) ?? null,
     expiresAt:             (raw.expires_at as string | null) ?? null,
     receivedAt:            (raw.received_at as string | null) ?? null,
+    pickedUpAt:            (raw.picked_up_at as string | null) ?? null,
     createdAt:             raw.created_at as string,
     updatedAt:             raw.updated_at as string,
     bookerName:            (raw.booker_name as string | undefined) ?? undefined,
@@ -297,6 +299,11 @@ export const runBookingApi = {
   confirmDropoff: (token: string): Promise<{ confirmedCount: number; alreadyReceived?: boolean }> =>
     apiClient
       .post<{ confirmedCount: number; alreadyReceived?: boolean }>(`/api/carriers/run-bookings/dropoff/${token}/confirm`)
+      .then((r) => r.data),
+
+  confirmPickup: (token: string): Promise<{ confirmedCount: number; alreadyReceived?: boolean; viaPickup: boolean }> =>
+    apiClient
+      .post<{ confirmedCount: number; alreadyReceived?: boolean; viaPickup: boolean }>(`/api/carriers/run-bookings/dropoff/${token}/pickup`)
       .then((r) => r.data),
 };
 
