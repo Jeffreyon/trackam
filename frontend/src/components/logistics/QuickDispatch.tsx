@@ -26,7 +26,7 @@ type RouteOption = {
 function fromCarrierRoute(r: CarrierRoute): RouteOption {
   return {
     id:              r.id,
-    name:            r.label || `${r.originCity} → ${r.destCity}`,
+    name:            r.label || `${r.originCity} -> ${r.destCity}`,
     pickupLocation:  r.originCity,
     deliveryLocation: r.destCity,
     distanceKm:      r.distanceKm,
