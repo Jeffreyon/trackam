@@ -12,7 +12,7 @@ import { ridersApi, type Rider } from "@/services/logistics";
 import { networkRateApi, runBookingApi, type NetworkRate, type RunBooking } from "@/services/carrier";
 import { CityAutocomplete } from "@/components/common/CityAutocomplete";
 import { QRCodeSVG } from "qrcode.react";
-import { formatNaira } from "@/lib/format";
+import { formatNaira, formatNairaRaw } from "@/lib/format";
 import { StatusBadge } from "@/components/logistics/StatusBadge";
 import type { ShipmentStatus } from "@/services/logistics";
 
@@ -522,7 +522,7 @@ export default function DispatchRunDetailPage() {
               )}
             </div>
             <p className="text-[11px] text-stone-500">
-              {runBooking.carrierName ?? "Carrier"} · {runBooking.originCity} → {runBooking.destCity} · {formatNaira(runBooking.quotedRateKobo / 100)}
+              {runBooking.carrierName ?? "Carrier"} · {runBooking.originCity} → {runBooking.destCity} · {formatNaira(runBooking.quotedRateKobo)}
             </p>
           </div>
         )}
@@ -724,7 +724,7 @@ export default function DispatchRunDetailPage() {
                       }`}>
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium text-stone-200">{r.carrierName ?? r.serviceName}</p>
-                        <p className="text-sm font-bold text-white">{formatNaira(r.totalCharge.amount)}</p>
+                        <p className="text-sm font-bold text-white">{formatNairaRaw(r.totalCharge.amount)}</p>
                       </div>
                       <p className="text-[11px] text-stone-500 mt-0.5 capitalize">
                         {r.pricingModel?.replace("_", " ")}
@@ -757,7 +757,7 @@ export default function DispatchRunDetailPage() {
                   </div>
                   <div className="flex justify-between border-t border-white/[0.06] pt-2">
                     <span className="text-stone-500">Rate</span>
-                    <span className="font-bold text-white">{formatNaira(selectedRate.totalCharge.amount)}</span>
+                    <span className="font-bold text-white">{formatNairaRaw(selectedRate.totalCharge.amount)}</span>
                   </div>
                 </div>
                 <p className="text-[11px] text-stone-500">

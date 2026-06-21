@@ -295,7 +295,7 @@ export default function DispatchRunModal({ carrier, onClose }: Props) {
                 )}
                 <div className="border-t border-white/[0.06] pt-2 flex items-center justify-between">
                   <span className="text-stone-400 font-medium">You pay</span>
-                  <span className="text-white font-bold text-sm">{formatNaira(rate / 100)}</span>
+                  <span className="text-white font-bold text-sm">{formatNaira(rate)}</span>
                 </div>
               </div>
 
