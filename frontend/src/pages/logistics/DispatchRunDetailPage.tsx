@@ -64,6 +64,15 @@ export default function DispatchRunDetailPage() {
   const [runBooking, setRunBooking]           = useState<RunBooking | null>(null);
   const [dropoffQrOpen, setDropoffQrOpen]     = useState(false);
 
+  // Pickup QR modal state (dynamic: countdown + polls for carrier scan)
+  const [pickupQrOpen, setPickupQrOpen]           = useState(false);
+  const [pickupSecondsLeft, setPickupSecondsLeft] = useState(0);
+  const [pickupConfirmed, setPickupConfirmed]     = useState(false);
+
+  // Stable ref so async callbacks can read the latest run without closure staleness
+  const runRef = useRef<DispatchRunDetail | null>(null);
+  useEffect(() => { runRef.current = run; }, [run]);
+
   async function loadRun() {
     if (!id) return;
     const [data, waybills, existingBooking] = await Promise.all([
@@ -113,6 +122,7 @@ export default function DispatchRunDetailPage() {
     try {
       const updated = await runsApi.updateStatus(id, next);
       setRun((prev) => prev ? { ...prev, ...updated } : prev);
+      loadRun().catch(() => {}); // refresh leg handover counts after status change
     } finally {
       setUpdating(false);
     }
@@ -179,6 +189,7 @@ export default function DispatchRunDetailPage() {
     handoverQrOpenRef.current = handoverQrOpen;
     if (wasOpen && !handoverQrOpen) {
       triggerWalletRefresh();
+      loadRun().catch(() => {}); // refresh handover counts even on manual dismiss
     }
   }, [handoverQrOpen]);
 
@@ -195,6 +206,11 @@ export default function DispatchRunDetailPage() {
         if (allHandedOver && arr.length > 0) {
           setHandoverConfirmed(true);
           await loadRun();
+          // Auto-advance run to in_transit when all shipments are handed to driver
+          if (runRef.current?.status === "loading" && id) {
+            const advanced = await runsApi.updateStatus(id, "in_transit").catch(() => null);
+            if (advanced) setRun((prev) => prev ? { ...prev, ...advanced } : prev);
+          }
           setTimeout(() => {
             setHandoverQrOpen(false);
             setHandoverToken(null);
@@ -205,6 +221,36 @@ export default function DispatchRunDetailPage() {
     }, 5000);
     return () => clearInterval(poll);
   }, [handoverQrOpen, handoverToken, handoverConfirmed]);
+
+  useEffect(() => {
+    if (pickupSecondsLeft <= 0) return;
+    const t = setInterval(() => setPickupSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [pickupSecondsLeft]);
+
+  useEffect(() => {
+    if (!pickupQrOpen || pickupConfirmed || !runBooking?.dropoffToken) return;
+    const poll = setInterval(async () => {
+      try {
+        const info = await runBookingApi.getDropoffInfo(runBooking.dropoffToken!);
+        if (info.status === "received") {
+          setPickupConfirmed(true);
+          await loadRun();
+          setTimeout(() => {
+            setPickupQrOpen(false);
+            setPickupConfirmed(false);
+          }, 3000);
+        }
+      } catch { /* ignore polling errors */ }
+    }, 5000);
+    return () => clearInterval(poll);
+  }, [pickupQrOpen, pickupConfirmed, runBooking?.dropoffToken]);
+
+  function openPickupQr() {
+    setPickupConfirmed(false);
+    setPickupSecondsLeft(5 * 60);
+    setPickupQrOpen(true);
+  }
 
   async function handleHandoverToDriver() {
     if (!run?.legs.length) return;
@@ -462,7 +508,7 @@ export default function DispatchRunDetailPage() {
 
         {nextStatus && (
           <button onClick={() => handleStatusChange(nextStatus)} disabled={updating}
-            className={["w-full inline-flex items-center justify-center gap-2 rounded-lg h-10 text-sm font-semibold transition-all disabled:opacity-60",
+            className={["w-full inline-flex items-center justify-center gap-2 rounded-lg h-12 text-sm font-semibold transition-all disabled:opacity-60",
               nextStatus === "in_transit" ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-emerald-600 text-white hover:bg-emerald-700"].join(" ")}>
             {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : nextStatus === "in_transit" ? <Truck className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
             {nextStatus === "in_transit" ? "Depart — mark as in transit" : "Mark as completed"}
@@ -486,7 +532,7 @@ export default function DispatchRunDetailPage() {
                   <button
                     onClick={handleHandoverToDriver}
                     disabled={handoverWorking}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/[0.08] text-purple-300 h-10 text-sm font-medium hover:bg-purple-500/[0.12] transition-all disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/[0.08] text-purple-300 h-12 text-sm font-medium hover:bg-purple-500/[0.12] transition-all disabled:opacity-60"
                   >
                     {handoverWorking
                       ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -499,15 +545,13 @@ export default function DispatchRunDetailPage() {
                 {!runBooking ? (
                   <button
                     onClick={openDispatch}
-                    className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 px-3 text-sm font-medium hover:bg-blue-500/[0.12] transition-all"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-12 px-3 text-sm font-medium hover:bg-blue-500/[0.12] transition-all"
                   >
                     <Globe className="h-4 w-4 shrink-0" />
-                    <div className="text-left min-w-0">
-                      <p className="text-xs font-semibold truncate">Dispatch to carrier</p>
-                    </div>
+                    Dispatch to carrier
                   </button>
                 ) : runBooking.status === "pending" ? (
-                  <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-3 h-10 cursor-default">
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-3 h-12 cursor-default">
                     <Clock className="h-4 w-4 text-amber-400 shrink-0" />
                     <div className="text-left min-w-0">
                       <p className="text-xs font-semibold text-amber-300 truncate">Awaiting acceptance</p>
@@ -516,10 +560,10 @@ export default function DispatchRunDetailPage() {
                   </div>
                 ) : runBooking.status === "accepted" && runBooking.dropoffToken ? (
                   runBooking.handoverMode === "pickup" ? (
-                    // Pickup: always unlocked — carrier's rider comes to the booker
+                    // Pickup: carrier's rider comes to booker's hub — show dynamic QR with countdown
                     <button
-                      onClick={() => setDropoffQrOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 px-3 hover:bg-blue-500/[0.12] transition-all"
+                      onClick={openPickupQr}
+                      className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-12 px-3 hover:bg-blue-500/[0.12] transition-all"
                     >
                       <Truck className="h-4 w-4 shrink-0" />
                       <div className="text-left min-w-0">
@@ -528,20 +572,18 @@ export default function DispatchRunDetailPage() {
                       </div>
                     </button>
                   ) : allHandedOver ? (
-                    // Dropoff: unlocked only after rider has custody of all waybills
-                    <button
-                      onClick={() => setDropoffQrOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-300 h-10 px-3 hover:bg-emerald-500/[0.12] transition-all"
-                    >
-                      <Building2 className="h-4 w-4 shrink-0" />
+                    // Dropoff: rider has custody and is heading to carrier hub.
+                    // Only the rider can show the QR (from their custodian session link).
+                    <div className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/[0.06] px-3 h-12 cursor-default">
+                      <Truck className="h-4 w-4 text-blue-400 shrink-0" />
                       <div className="text-left min-w-0">
-                        <p className="text-xs font-semibold truncate">Drop off at Carrier</p>
-                        <p className="text-[10px] text-stone-500 truncate">Show QR at {runBooking.carrierName ?? "hub"}</p>
+                        <p className="text-xs font-semibold text-blue-300 truncate">Rider heading to carrier hub</p>
+                        <p className="text-[10px] text-stone-500 truncate">Carrier scans QR from rider</p>
                       </div>
-                    </button>
+                    </div>
                   ) : (
                     // Dropoff: locked until rider has taken custody
-                    <div className="inline-flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 h-10 cursor-default opacity-60">
+                    <div className="inline-flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 h-12 cursor-default opacity-60">
                       <Building2 className="h-4 w-4 text-stone-600 shrink-0" />
                       <div className="text-left min-w-0">
                         <p className="text-xs font-semibold text-stone-500 truncate">Drop off at Carrier</p>
@@ -550,7 +592,7 @@ export default function DispatchRunDetailPage() {
                     </div>
                   )
                 ) : runBooking.status === "received" ? (
-                  <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 h-10 cursor-default">
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 h-12 cursor-default">
                     <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                     <div className="text-left min-w-0">
                       <p className="text-xs font-semibold text-emerald-300 truncate">Received by carrier</p>
@@ -558,7 +600,7 @@ export default function DispatchRunDetailPage() {
                     </div>
                   </div>
                 ) : runBooking.status === "dispatched" ? (
-                  <div className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/[0.06] px-3 h-10 cursor-default">
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/[0.06] px-3 h-12 cursor-default">
                     <Truck className="h-4 w-4 text-blue-400 shrink-0" />
                     <div className="text-left min-w-0">
                       <p className="text-xs font-semibold text-blue-300 truncate">Dispatched by carrier</p>
@@ -566,7 +608,7 @@ export default function DispatchRunDetailPage() {
                     </div>
                   </div>
                 ) : runBooking.status === "delivered" ? (
-                  <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 h-10 cursor-default">
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 h-12 cursor-default">
                     <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
                     <div className="text-left min-w-0">
                       <p className="text-xs font-semibold text-emerald-300 truncate">Delivered</p>
@@ -574,7 +616,7 @@ export default function DispatchRunDetailPage() {
                     </div>
                   </div>
                 ) : runBooking.status === "expired" ? (
-                  <button onClick={openDispatch} className="inline-flex items-center gap-2 rounded-lg border border-stone-700 bg-white/[0.03] hover:bg-white/[0.05] px-3 h-10">
+                  <button onClick={openDispatch} className="inline-flex items-center gap-2 rounded-lg border border-stone-700 bg-white/[0.03] hover:bg-white/[0.05] px-3 h-12">
                     <AlertCircle className="h-4 w-4 text-stone-500 shrink-0" />
                     <div className="text-left min-w-0">
                       <p className="text-xs font-semibold truncate text-stone-400">Booking expired · Rebook</p>
@@ -584,7 +626,7 @@ export default function DispatchRunDetailPage() {
                 ) : runBooking.status === "rejected" ? (
                   <button
                     onClick={openDispatch}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.06] text-red-300 h-10 px-3 hover:bg-red-500/[0.1] transition-all"
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.06] text-red-300 h-12 px-3 hover:bg-red-500/[0.1] transition-all"
                   >
                     <XCircle className="h-4 w-4 shrink-0" />
                     <div className="text-left min-w-0">
@@ -862,6 +904,64 @@ export default function DispatchRunDetailPage() {
           </div>
         </div>
       )}
+
+      {/* ── Pickup QR modal — dynamic, with countdown + polling ───────────── */}
+      {pickupQrOpen && runBooking?.dropoffToken && (() => {
+        const pickupUrl = `${window.location.origin}/dropoff/${runBooking.dropoffToken}`;
+        const mins = Math.floor(pickupSecondsLeft / 60);
+        const secs = pickupSecondsLeft % 60;
+        return (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
+            <div className="relative w-full sm:max-w-sm rounded-t-xl sm:rounded-xl border border-white/[0.08] bg-[#0c1522] shadow-2xl shadow-black/40 overflow-hidden">
+              <div className="flex items-start justify-between px-5 py-4 border-b border-white/[0.06]">
+                <div>
+                  <p className="text-sm font-semibold text-white">Pickup QR</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Carrier's rider scans this at your location · {runBooking.waybillIds?.length ?? 0} waybill{(runBooking.waybillIds?.length ?? 0) !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <button onClick={() => setPickupQrOpen(false)} className="text-stone-600 hover:text-stone-300 mt-0.5 transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-5 flex flex-col items-center gap-4">
+                {pickupConfirmed ? (
+                  <div className="flex flex-col items-center justify-center h-[220px] gap-3">
+                    <CheckCircle2 className="h-12 w-12 text-emerald-400" />
+                    <p className="text-sm font-semibold text-emerald-300">Pickup confirmed!</p>
+                    <p className="text-[11px] text-stone-500">Carrier has taken custody of the shipments.</p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-white/[0.08] p-3 bg-white">
+                    <QRCodeSVG value={pickupUrl} size={200} />
+                  </div>
+                )}
+                {!pickupConfirmed && (
+                  <div className="w-full space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-stone-500">Expires in</span>
+                      <span className={`font-mono font-semibold ${pickupSecondsLeft < 60 ? "text-red-400" : "text-stone-300"}`}>
+                        {mins}:{secs.toString().padStart(2, "0")}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setPickupSecondsLeft(5 * 60)}
+                      className="w-full inline-flex items-center justify-center rounded-lg border border-white/[0.06] h-8 text-xs text-stone-500 hover:text-stone-300 transition-colors"
+                    >
+                      Refresh timer
+                    </button>
+                  </div>
+                )}
+                <p className="text-[11px] text-stone-600 text-center">
+                  {pickupConfirmed
+                    ? "Booking will update automatically."
+                    : "Carrier's rider scans this QR to confirm custody and mark the booking received."}
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Drop-off QR modal ──────────────────────────────────────────────── */}
       {dropoffQrOpen && runBooking?.dropoffToken && (() => {
