@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Loader2, Package, ArrowRight, CheckCircle2, Clock, XCircle,
+  Loader2, ArrowRight, CheckCircle2, Clock, XCircle,
   AlertCircle, Globe, QrCode, Truck,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
