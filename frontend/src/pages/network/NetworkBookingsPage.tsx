@@ -5,7 +5,7 @@ import {
   AlertCircle, Globe, QrCode, Truck,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { runBookingApi, type RunBooking } from "@/services/carrier";
+import { runBookingApi, type RunBooking, type RunBookingStatus } from "@/services/carrier";
 
 type Filter = "pending" | "accepted" | "all";
 
