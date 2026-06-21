@@ -148,17 +148,24 @@ export default function IncomingBookingsPage() {
                 </div>
 
                 <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium shrink-0 ${
-                  b.status === "pending"  ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
-                  b.status === "accepted" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
-                  b.status === "received" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                  b.status === "pending"    ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                  b.status === "accepted"   ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                  b.status === "received"   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                  b.status === "dispatched" ? "bg-blue-500/10 text-blue-300 border-blue-500/20" :
+                  b.status === "delivered"  ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20" :
                   "bg-red-500/10 text-red-400 border-red-500/20"
                 }`}>
-                  {b.status === "pending"  && <Clock className="h-3 w-3" />}
-                  {(b.status === "accepted" || b.status === "received") && <CheckCircle2 className="h-3 w-3" />}
-                  {b.status === "rejected" && <XCircle className="h-3 w-3" />}
-                  {b.status === "pending"  ? "Pending" :
-                   b.status === "accepted" ? "Accepted" :
-                   b.status === "received" ? "Received" : "Rejected"}
+                  {b.status === "pending"                                    && <Clock className="h-3 w-3" />}
+                  {(b.status === "accepted" || b.status === "received")      && <CheckCircle2 className="h-3 w-3" />}
+                  {b.status === "dispatched"                                 && <Truck className="h-3 w-3" />}
+                  {b.status === "delivered"                                  && <CheckCircle2 className="h-3 w-3" />}
+                  {(b.status === "rejected" || b.status === "expired")       && <XCircle className="h-3 w-3" />}
+                  {b.status === "pending"    ? "Pending" :
+                   b.status === "accepted"   ? "Accepted" :
+                   b.status === "received"   ? "Received" :
+                   b.status === "dispatched" ? "Dispatched" :
+                   b.status === "delivered"  ? "Delivered" :
+                   b.status === "expired"    ? "Expired" : "Rejected"}
                 </span>
               </div>
 

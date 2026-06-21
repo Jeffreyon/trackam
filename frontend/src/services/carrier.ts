@@ -180,7 +180,7 @@ export const carrierRoutesApi = {
 
 // ── Run bookings ─────────────────────────────────────────────────────────────
 
-export type RunBookingStatus = "pending" | "accepted" | "rejected" | "received";
+export type RunBookingStatus = "pending" | "accepted" | "rejected" | "received" | "dispatched" | "delivered" | "expired";
 
 export type RunBooking = {
   id: string;
@@ -200,8 +200,10 @@ export type RunBooking = {
   rejectedAt: string | null;
   expiresAt: string | null;
   receivedAt: string | null;
-  pickedUpAt: string | null;    // set when carrier's rider scanned at booker's location
-  handoverMode: HandoverMode | null;  // set at acceptance; determines pickup vs drop-off path
+  pickedUpAt: string | null;
+  dispatchedAt: string | null;
+  deliveredAt: string | null;
+  handoverMode: HandoverMode | null;
   createdAt: string;
   updatedAt: string;
   // joined
@@ -245,6 +247,8 @@ function toRunBooking(raw: Record<string, unknown>): RunBooking {
     expiresAt:             (raw.expires_at as string | null) ?? null,
     receivedAt:            (raw.received_at as string | null) ?? null,
     pickedUpAt:            (raw.picked_up_at as string | null) ?? null,
+    dispatchedAt:          (raw.dispatched_at as string | null) ?? null,
+    deliveredAt:           (raw.delivered_at as string | null) ?? null,
     handoverMode:          (raw.handover_mode as HandoverMode | null) ?? null,
     createdAt:             raw.created_at as string,
     updatedAt:             raw.updated_at as string,

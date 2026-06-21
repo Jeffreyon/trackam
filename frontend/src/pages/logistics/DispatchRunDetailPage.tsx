@@ -93,6 +93,20 @@ export default function DispatchRunDetailPage() {
 
   useEffect(() => { loadRun().finally(() => setLoading(false)); }, [id]);
 
+  // Poll every 30 s while the booking is awaiting acceptance or in transit.
+  // Stops automatically once the booking reaches a terminal status.
+  const POLL_INTERVAL_MS = 30_000;
+  const TERMINAL_STATUSES = ["received", "dispatched", "delivered", "rejected", "expired"];
+  useEffect(() => {
+    if (!runBooking || TERMINAL_STATUSES.includes(runBooking.status)) return;
+    const timer = setInterval(() => {
+      runBookingApi.getByRunId(id ?? "").then((updated) => {
+        if (updated) setRunBooking(updated);
+      }).catch(() => {});
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [id, runBooking?.status]);
+
   async function handleStatusChange(next: RunStatus) {
     if (!id) return;
     setUpdating(true);
@@ -543,6 +557,30 @@ export default function DispatchRunDetailPage() {
                       <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
                     </div>
                   </div>
+                ) : runBooking.status === "dispatched" ? (
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/[0.06] px-3 h-10 cursor-default">
+                    <Truck className="h-4 w-4 text-blue-400 shrink-0" />
+                    <div className="text-left min-w-0">
+                      <p className="text-xs font-semibold text-blue-300 truncate">Dispatched by carrier</p>
+                      <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
+                    </div>
+                  </div>
+                ) : runBooking.status === "delivered" ? (
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 h-10 cursor-default">
+                    <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <div className="text-left min-w-0">
+                      <p className="text-xs font-semibold text-emerald-300 truncate">Delivered</p>
+                      <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
+                    </div>
+                  </div>
+                ) : runBooking.status === "expired" ? (
+                  <button onClick={openDispatch} className="inline-flex items-center gap-2 rounded-lg border border-stone-700 bg-white/[0.03] hover:bg-white/[0.05] px-3 h-10">
+                    <AlertCircle className="h-4 w-4 text-stone-500 shrink-0" />
+                    <div className="text-left min-w-0">
+                      <p className="text-xs font-semibold truncate text-stone-400">Booking expired · Rebook</p>
+                      <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
+                    </div>
+                  </button>
                 ) : runBooking.status === "rejected" ? (
                   <button
                     onClick={openDispatch}
