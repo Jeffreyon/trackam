@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft, Truck, Package, Navigation, CheckCircle2, XCircle,
   Clock, Loader2, Trash2, Plus, ShieldCheck, ExternalLink, Edit2, X, Check,
-  QrCode, AlertCircle, Globe, ArrowRight,
+  QrCode, AlertCircle, Globe, ArrowRight, Building2,
 } from "lucide-react";
 import { runsApi, type DispatchRunDetail, type RunStatus } from "@/services/runs";
 import { waybillApi, handoverApi, type OperatorWaybill } from "@/services/handover";
@@ -458,6 +458,7 @@ export default function DispatchRunDetailPage() {
         {(run.status === "loading" || run.status === "in_transit") && run.legs.length > 0 && run.legs.some((l) => l.handoverCount === 0) && (
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
+              {/* Internal handover — always present */}
               <button
                 onClick={handleHandoverToDriver}
                 disabled={handoverWorking}
@@ -468,62 +469,76 @@ export default function DispatchRunDetailPage() {
                   : <QrCode className="h-4 w-4" />}
                 Hand to driver
               </button>
-              {!runBooking && (
+
+              {/* Carrier slot — state-driven */}
+              {!runBooking ? (
                 <button
                   onClick={openDispatch}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 text-sm font-medium hover:bg-blue-500/[0.12] transition-all"
+                  className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 px-3 text-sm font-medium hover:bg-blue-500/[0.12] transition-all"
                 >
-                  <Globe className="h-4 w-4" />
-                  Dispatch to carrier
+                  <Globe className="h-4 w-4 shrink-0" />
+                  <div className="text-left min-w-0">
+                    <p className="text-xs font-semibold truncate">Dispatch to carrier</p>
+                  </div>
                 </button>
-              )}
+              ) : runBooking.status === "pending" ? (
+                <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-3 h-10 cursor-default">
+                  <Clock className="h-4 w-4 text-amber-400 shrink-0" />
+                  <div className="text-left min-w-0">
+                    <p className="text-xs font-semibold text-amber-300 truncate">Awaiting acceptance</p>
+                    <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
+                  </div>
+                </div>
+              ) : runBooking.status === "accepted" && runBooking.dropoffToken ? (
+                runBooking.handoverMode === "pickup" ? (
+                  <button
+                    onClick={() => setDropoffQrOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 px-3 hover:bg-blue-500/[0.12] transition-all"
+                  >
+                    <Truck className="h-4 w-4 shrink-0" />
+                    <div className="text-left min-w-0">
+                      <p className="text-xs font-semibold truncate">Show Pickup QR</p>
+                      <p className="text-[10px] text-stone-500 truncate">Rider scans at your location</p>
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setDropoffQrOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-300 h-10 px-3 hover:bg-emerald-500/[0.12] transition-all"
+                  >
+                    <Building2 className="h-4 w-4 shrink-0" />
+                    <div className="text-left min-w-0">
+                      <p className="text-xs font-semibold truncate">Drop off at Carrier</p>
+                      <p className="text-[10px] text-stone-500 truncate">Show QR at {runBooking.carrierName ?? "hub"}</p>
+                    </div>
+                  </button>
+                )
+              ) : runBooking.status === "received" ? (
+                <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 h-10 cursor-default">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <div className="text-left min-w-0">
+                    <p className="text-xs font-semibold text-emerald-300 truncate">Received by carrier</p>
+                    <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
+                  </div>
+                </div>
+              ) : runBooking.status === "rejected" ? (
+                <button
+                  onClick={openDispatch}
+                  className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.06] text-red-300 h-10 px-3 hover:bg-red-500/[0.1] transition-all"
+                >
+                  <XCircle className="h-4 w-4 shrink-0" />
+                  <div className="text-left min-w-0">
+                    <p className="text-xs font-semibold truncate">Declined · Rebook</p>
+                    <p className="text-[10px] text-stone-500 truncate">{runBooking.carrierName ?? "Carrier"}</p>
+                  </div>
+                </button>
+              ) : null}
             </div>
             {handoverError && (
               <p className="flex items-center gap-1.5 text-[11px] text-red-400 bg-red-500/[0.1] border border-red-500/20 rounded-lg px-3 py-2">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />{handoverError}
               </p>
             )}
-          </div>
-        )}
-
-        {/* Run booking status card */}
-        {runBooking && (
-          <div className={`rounded-lg border p-4 space-y-2 ${
-            runBooking.status === "accepted"  ? "border-blue-500/20 bg-blue-500/[0.06]" :
-            runBooking.status === "received"  ? "border-emerald-500/20 bg-emerald-500/[0.06]" :
-            runBooking.status === "rejected"  ? "border-red-500/20 bg-red-500/[0.06]" :
-            "border-amber-500/20 bg-amber-500/[0.06]"
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Globe className={`h-4 w-4 shrink-0 ${
-                  runBooking.status === "accepted" ? "text-blue-400" :
-                  runBooking.status === "received" ? "text-emerald-400" :
-                  runBooking.status === "rejected" ? "text-red-400" : "text-amber-400"
-                }`} />
-                <p className={`text-xs font-semibold ${
-                  runBooking.status === "accepted" ? "text-blue-300" :
-                  runBooking.status === "received" ? "text-emerald-300" :
-                  runBooking.status === "rejected" ? "text-red-300" : "text-amber-300"
-                }`}>
-                  {runBooking.status === "pending"  && "Awaiting carrier acceptance"}
-                  {runBooking.status === "accepted" && "Carrier accepted — drop off your shipments"}
-                  {runBooking.status === "received" && "Received by carrier"}
-                  {runBooking.status === "rejected" && "Carrier declined this booking"}
-                </p>
-              </div>
-              {runBooking.status === "accepted" && runBooking.dropoffToken && (
-                <button
-                  onClick={() => setDropoffQrOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 h-7 text-xs font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  <QrCode className="h-3 w-3" /> Drop-off QR
-                </button>
-              )}
-            </div>
-            <p className="text-[11px] text-stone-500">
-              {runBooking.carrierName ?? "Carrier"} · {runBooking.originCity} → {runBooking.destCity} · {formatNaira(runBooking.quotedRateKobo)}
-            </p>
           </div>
         )}
 
@@ -794,9 +809,13 @@ export default function DispatchRunDetailPage() {
             <div className="relative w-full sm:max-w-sm rounded-t-xl sm:rounded-xl border border-white/[0.08] bg-[#0c1522] shadow-2xl shadow-black/40 overflow-hidden">
               <div className="flex items-start justify-between px-5 py-4 border-b border-white/[0.06]">
                 <div>
-                  <p className="text-sm font-semibold text-white">Carrier drop-off QR</p>
+                  <p className="text-sm font-semibold text-white">
+                    {runBooking.handoverMode === "pickup" ? "Pickup QR" : "Drop-off QR"}
+                  </p>
                   <p className="text-[11px] text-stone-500 mt-0.5">
-                    Show this at {runBooking.carrierName ?? "the carrier hub"} · {runBooking.waybillIds?.length ?? 0} waybill{(runBooking.waybillIds?.length ?? 0) !== 1 ? "s" : ""}
+                    {runBooking.handoverMode === "pickup"
+                      ? `Carrier's rider scans this at your location · ${runBooking.waybillIds?.length ?? 0} waybill${(runBooking.waybillIds?.length ?? 0) !== 1 ? "s" : ""}`
+                      : `Show at ${runBooking.carrierName ?? "carrier hub"} · ${runBooking.waybillIds?.length ?? 0} waybill${(runBooking.waybillIds?.length ?? 0) !== 1 ? "s" : ""}`}
                   </p>
                 </div>
                 <button onClick={() => setDropoffQrOpen(false)} className="text-stone-600 hover:text-stone-300 mt-0.5 transition-colors">
@@ -812,7 +831,7 @@ export default function DispatchRunDetailPage() {
                     onClick={() => navigator.clipboard.writeText(dropoffUrl)}
                     className="w-full inline-flex items-center justify-center rounded-lg border border-white/[0.06] h-9 text-xs text-stone-500 hover:text-stone-300 transition-colors"
                   >
-                    Copy drop-off link
+                    Copy link
                   </button>
                   {runBooking.dropoffTokenExpiresAt && (
                     <p className="text-[11px] text-stone-600 text-center">
