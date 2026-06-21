@@ -5,7 +5,7 @@ import {
   Phone, Link2, Plus, X, Send, AlertCircle, XCircle, Users, Pencil, ChevronDown, MapPin, Trash2,
   ArrowRight,
 } from "lucide-react";
-import { searchCities } from "@/lib/nigerianCities";
+import { CityAutocomplete } from "@/components/common/CityAutocomplete";
 import { orgSettingsApi, type OrgSettings } from "@/services/admin.api";
 import { carrierApi, carrierRoutesApi, type CarrierProfile, type CarrierProfileInput, type CarrierRoute, type ServiceArea, type CapacityType, type PricingModel, type ReviewStatus } from "@/services/carrier";
 import { formatNairaRaw } from "@/lib/format";
@@ -767,73 +767,6 @@ function CarrierNetworkForm({ country, logoUrl }: { country: string; logoUrl?: s
   );
 }
 
-// ── City autocomplete ─────────────────────────────────────────────────────────
-
-function CityAutocomplete({ value, onChange, placeholder, id }: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  id?: string;
-}) {
-  const [open, setOpen]       = useState(false);
-  const [results, setResults] = useState<{ city: string; state: string }[]>([]);
-  const containerRef          = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
-  }, []);
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value;
-    onChange(v);
-    const hits = searchCities(v);
-    setResults(hits);
-    setOpen(hits.length > 0);
-  }
-
-  function select(city: string) {
-    onChange(city);
-    setResults([]);
-    setOpen(false);
-  }
-
-  const inCls = "w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-10 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors";
-
-  return (
-    <div ref={containerRef} className="relative">
-      <input
-        id={id}
-        type="text"
-        autoComplete="off"
-        value={value}
-        placeholder={placeholder}
-        onChange={handleChange}
-        onFocus={() => { const hits = searchCities(value); setResults(hits); setOpen(hits.length > 0); }}
-        className={inCls}
-      />
-      {open && results.length > 0 && (
-        <div className="absolute z-[60] top-full left-0 right-0 mt-1 rounded-lg border border-white/[0.08] bg-[#0c1828] shadow-2xl overflow-hidden max-h-44 overflow-y-auto">
-          {results.map(({ city, state }) => (
-            <button
-              key={`${city}-${state}`}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); select(city); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-white/[0.05] transition-colors"
-            >
-              <span className="font-medium text-stone-200">{city}</span>
-              <span className="text-stone-600">{state}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Carrier routes sub-component ─────────────────────────────────────────────
 
 const EMPTY_ROUTE_FORM = { originCity: "", destCity: "", distanceKm: "", fixedPriceNgn: "", label: "" };
@@ -982,6 +915,7 @@ function CarrierRoutes({ pricingModel }: { pricingModel: PricingModel }) {
                       value={form.originCity}
                       onChange={(v) => setForm((f) => ({ ...f, originCity: v }))}
                       placeholder="Origin city"
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-10 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
                     />
                   </div>
                   <ArrowRight className="h-4 w-4 text-stone-600 shrink-0" />
@@ -991,6 +925,7 @@ function CarrierRoutes({ pricingModel }: { pricingModel: PricingModel }) {
                       value={form.destCity}
                       onChange={(v) => setForm((f) => ({ ...f, destCity: v }))}
                       placeholder="Destination city"
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-10 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
                     />
                   </div>
                 </div>

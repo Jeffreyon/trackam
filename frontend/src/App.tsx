@@ -35,7 +35,6 @@ import DispatchRunsPage from "@/pages/logistics/DispatchRunsPage";
 import DispatchRunDetailPage from "@/pages/logistics/DispatchRunDetailPage";
 import RidersPage from "@/pages/logistics/RidersPage";
 import StaffPage from "@/pages/logistics/StaffPage";
-import RoutesPage from "@/pages/logistics/RoutesPage";
 import ErrorPage from "@/components/common/ErrorPage";
 import { adminLoader, requireAuth } from "./scripts/auth.loader";
 
@@ -71,7 +70,6 @@ const router = createBrowserRouter([
       { path: "runs/:id", element: <DispatchRunDetailPage /> },
       { path: "riders", element: <RidersPage /> },
       { path: "staff",  element: <StaffPage /> },
-      { path: "routes", element: <RoutesPage /> },
       { path: "network", element: <CarrierDirectoryPage /> },
       { path: "bookings", element: <NetworkBookingsPage /> },
       { path: "incoming-bookings", element: <IncomingBookingsPage /> },

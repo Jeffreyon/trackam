@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Package,
   Users,
-  MapPin,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -42,7 +41,6 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
       { to: "/dashboard/shipments", label: "Shipments", icon: Package,         end: false },
       { to: "/dashboard/riders",    label: "Riders",    icon: Users,           end: false },
       { to: "/dashboard/staff",     label: "Staff",     icon: ShieldCheck,     end: false },
-      { to: "/dashboard/routes",    label: "Routes",    icon: MapPin,          end: false },
     ],
   },
   {
@@ -70,7 +68,6 @@ const PAGE_TITLES: Record<string, { title: string; description: string }> = {
   "/dashboard/shipments":          { title: "Shipments",      description: "Individual waybill legs and their custody status." },
   "/dashboard/riders":             { title: "Riders",         description: "Your active dispatch riders." },
   "/dashboard/staff":              { title: "Staff",          description: "Your team — for internal custody handovers." },
-  "/dashboard/routes":             { title: "Routes",         description: "Set up your standard delivery lanes." },
   "/dashboard/network":            { title: "Carrier Directory",    description: "Browse logistics operators on the Trackam network." },
   "/dashboard/bookings":          { title: "My Bookings",          description: "Track shipments you've booked with other carriers." },
   "/dashboard/incoming-bookings": { title: "Incoming Bookings",    description: "Accept or decline booking requests from other operators." },

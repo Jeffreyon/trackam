@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Zap, X, ChevronRight, Loader2, AlertCircle } from "lucide-react";
-import { routesApi, ridersApi, type Rider } from "@/services/logistics";
+import { ridersApi, type Rider } from "@/services/logistics";
 import { runsApi } from "@/services/runs";
 import { carrierRoutesApi, type CarrierRoute } from "@/services/carrier";
 
@@ -61,23 +61,9 @@ export function QuickDispatch({ onCreated }: Props) {
       setDataLoading(true);
       Promise.all([
         carrierRoutesApi.list().catch(() => [] as CarrierRoute[]),
-        routesApi.list().catch(() => []),
         ridersApi.list(),
-      ]).then(([carrierRoutes, localRoutes, ri]) => {
-        // Prefer carrier routes when defined; fall back to local routes
-        const normalized: RouteOption[] = carrierRoutes.length > 0
-          ? carrierRoutes.map(fromCarrierRoute)
-          : localRoutes.map(r => ({
-              id:              r.id,
-              name:            r.name,
-              pickupLocation:  r.pickupLocation,
-              deliveryLocation: r.deliveryLocation,
-              distanceKm:      r.distanceKm ?? null,
-              defaultRiderId:  r.defaultRiderId ?? null,
-              defaultRiderFee: r.defaultRiderFee ? r.defaultRiderFee / 100 : null,
-              source:          "local" as const,
-            }));
-        setRoutes(normalized);
+      ]).then(([carrierRoutes, ri]) => {
+        setRoutes(carrierRoutes.map(fromCarrierRoute));
         setRiders(ri);
       }).finally(() => setDataLoading(false));
     }

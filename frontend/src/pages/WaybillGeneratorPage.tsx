@@ -3,6 +3,7 @@ import { Download, ArrowRight, Loader2, CheckCircle2, Copy, ExternalLink } from 
 import { publicWaybillApi } from "@/services/handover";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PhoneInput } from "@/components/PhoneInput";
+import { CityAutocomplete } from "@/components/common/CityAutocomplete";
 
 type Phase = "form" | "submitting" | "done";
 
@@ -183,8 +184,14 @@ export default function WaybillGeneratorPage() {
                 <input required type="email" {...field("senderEmail")} placeholder="adaeze@example.com" className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Pickup location <span className="text-red-500">*</span></label>
-                <input required {...field("pickupLocation")} placeholder="e.g. Alaba Market, Lagos" className={inputCls} />
+                <label className={labelCls}>Pickup city <span className="text-red-500">*</span></label>
+                <CityAutocomplete
+                  required
+                  value={form.pickupLocation}
+                  onChange={(v) => setForm((prev) => ({ ...prev, pickupLocation: v }))}
+                  placeholder="e.g. Lagos"
+                  className={inputCls}
+                />
               </div>
             </div>
 
@@ -215,8 +222,14 @@ export default function WaybillGeneratorPage() {
                 <input required {...field("receiverAddress")} placeholder="12 Wuse Zone 5, Abuja" className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Delivery location <span className="text-red-500">*</span></label>
-                <input required {...field("deliveryLocation")} placeholder="e.g. Wuse, Abuja" className={inputCls} />
+                <label className={labelCls}>Delivery city <span className="text-red-500">*</span></label>
+                <CityAutocomplete
+                  required
+                  value={form.deliveryLocation}
+                  onChange={(v) => setForm((prev) => ({ ...prev, deliveryLocation: v }))}
+                  placeholder="e.g. Abuja"
+                  className={inputCls}
+                />
               </div>
             </div>
 
