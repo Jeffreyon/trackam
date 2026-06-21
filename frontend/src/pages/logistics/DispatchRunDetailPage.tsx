@@ -3,12 +3,14 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft, Truck, Package, Navigation, CheckCircle2, XCircle,
   Clock, Loader2, Trash2, Plus, ShieldCheck, ExternalLink, Edit2, X, Check,
-  QrCode, AlertCircle,
+  QrCode, AlertCircle, Globe, ArrowRight,
 } from "lucide-react";
 import { runsApi, type DispatchRunDetail, type RunStatus } from "@/services/runs";
 import { waybillApi, handoverApi, type OperatorWaybill } from "@/services/handover";
 import { triggerWalletRefresh } from "@/components/layout/WalletWidget";
 import { ridersApi, type Rider } from "@/services/logistics";
+import { networkRateApi, runBookingApi, type NetworkRate, type RunBooking } from "@/services/carrier";
+import { CityAutocomplete } from "@/components/common/CityAutocomplete";
 import { QRCodeSVG } from "qrcode.react";
 import { formatNaira } from "@/lib/format";
 import { StatusBadge } from "@/components/logistics/StatusBadge";
@@ -48,11 +50,26 @@ export default function DispatchRunDetailPage() {
   const [handoverWorking, setHandoverWorking] = useState(false);
   const [handoverError, setHandoverError] = useState("");
 
+  // Carrier dispatch state
+  type DispatchStep = "cities" | "rates" | "confirm";
+  const [dispatchOpen, setDispatchOpen]       = useState(false);
+  const [dispatchStep, setDispatchStep]       = useState<DispatchStep>("cities");
+  const [originCity, setOriginCity]           = useState("");
+  const [destCity, setDestCity]               = useState("");
+  const [rates, setRates]                     = useState<NetworkRate[]>([]);
+  const [ratesLoading, setRatesLoading]       = useState(false);
+  const [selectedRate, setSelectedRate]       = useState<NetworkRate | null>(null);
+  const [dispatchWorking, setDispatchWorking] = useState(false);
+  const [dispatchError, setDispatchError]     = useState("");
+  const [runBooking, setRunBooking]           = useState<RunBooking | null>(null);
+  const [dropoffQrOpen, setDropoffQrOpen]     = useState(false);
+
   async function loadRun() {
     if (!id) return;
-    const [data, waybills] = await Promise.all([
+    const [data, waybills, existingBooking] = await Promise.all([
       runsApi.get(id),
       waybillApi.list().catch(() => [] as OperatorWaybill[]),
+      runBookingApi.getByRunId(id).catch(() => null),
     ]);
     if (!data || typeof data !== "object") return;
     const legs = Array.isArray(data.legs) ? data.legs : [];
@@ -71,6 +88,7 @@ export default function DispatchRunDetailPage() {
     const safe = { ...data, legs: enriched };
     setRun(safe);
     setNameInput(safe.name ?? "");
+    setRunBooking(existingBooking);
   }
 
   useEffect(() => { loadRun().finally(() => setLoading(false)); }, [id]);
@@ -200,6 +218,72 @@ export default function DispatchRunDetailPage() {
       );
     } finally {
       setHandoverWorking(false);
+    }
+  }
+
+  function openDispatch() {
+    setOriginCity("");
+    setDestCity("");
+    setRates([]);
+    setSelectedRate(null);
+    setDispatchError("");
+    setDispatchStep("cities");
+    setDispatchOpen(true);
+  }
+
+  async function handleFetchRates() {
+    if (!originCity.trim() || !destCity.trim()) {
+      setDispatchError("Enter both origin and destination cities.");
+      return;
+    }
+    setDispatchError("");
+    setRatesLoading(true);
+    try {
+      const distKm = run?.distanceKm ?? null;
+      const fetched = await networkRateApi.check({
+        origin:      { countryCode: "ng", cityName: originCity.trim() },
+        destination: { countryCode: "ng", cityName: destCity.trim() },
+        packages:    [{ weight: { value: 1, unit: "kg" } }],
+        distanceKm:  distKm,
+      });
+      setRates(fetched.filter((r) => r.carrier === "trackam"));
+      setDispatchStep("rates");
+    } catch {
+      setDispatchError("Could not fetch carrier rates. Try again.");
+    } finally {
+      setRatesLoading(false);
+    }
+  }
+
+  async function handleDispatchToCarrier() {
+    if (!selectedRate?.carrierId || !run?.legs.length) return;
+    setDispatchWorking(true);
+    setDispatchError("");
+    try {
+      const waybillIds = (run.legs ?? [])
+        .map((l) => l.waybillId)
+        .filter((w): w is string => Boolean(w));
+      const booking = await runBookingApi.create({
+        carrierOperatorId: selectedRate.carrierId,
+        originCity:        originCity.trim(),
+        destCity:          destCity.trim(),
+        distanceKm:        run.distanceKm ?? undefined,
+        quotedRateKobo:    Math.round(selectedRate.totalCharge.amount * 100),
+        sourceRunId:       id,
+        waybillIds,
+      });
+      setRunBooking(booking);
+      setDispatchOpen(false);
+    } catch (e: unknown) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setDispatchError(
+        status === 402
+          ? "Insufficient wallet balance. Top up your OLI Switch wallet and try again."
+          : msg || "Failed to create booking. Try again."
+      );
+    } finally {
+      setDispatchWorking(false);
     }
   }
 
@@ -373,21 +457,73 @@ export default function DispatchRunDetailPage() {
 
         {(run.status === "loading" || run.status === "in_transit") && run.legs.length > 0 && run.legs.some((l) => l.handoverCount === 0) && (
           <div className="space-y-2">
-            <button
-              onClick={handleHandoverToDriver}
-              disabled={handoverWorking}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/[0.08] text-purple-300 h-10 text-sm font-medium hover:bg-purple-500/[0.12] transition-all disabled:opacity-60"
-            >
-              {handoverWorking
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <QrCode className="h-4 w-4" />}
-              Hand over {run.legs.length} shipment{run.legs.length !== 1 ? "s" : ""} to driver
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleHandoverToDriver}
+                disabled={handoverWorking}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/[0.08] text-purple-300 h-10 text-sm font-medium hover:bg-purple-500/[0.12] transition-all disabled:opacity-60"
+              >
+                {handoverWorking
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <QrCode className="h-4 w-4" />}
+                Hand to driver
+              </button>
+              {!runBooking && (
+                <button
+                  onClick={openDispatch}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-10 text-sm font-medium hover:bg-blue-500/[0.12] transition-all"
+                >
+                  <Globe className="h-4 w-4" />
+                  Dispatch to carrier
+                </button>
+              )}
+            </div>
             {handoverError && (
               <p className="flex items-center gap-1.5 text-[11px] text-red-400 bg-red-500/[0.1] border border-red-500/20 rounded-lg px-3 py-2">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />{handoverError}
               </p>
             )}
+          </div>
+        )}
+
+        {/* Run booking status card */}
+        {runBooking && (
+          <div className={`rounded-lg border p-4 space-y-2 ${
+            runBooking.status === "accepted"  ? "border-blue-500/20 bg-blue-500/[0.06]" :
+            runBooking.status === "received"  ? "border-emerald-500/20 bg-emerald-500/[0.06]" :
+            runBooking.status === "rejected"  ? "border-red-500/20 bg-red-500/[0.06]" :
+            "border-amber-500/20 bg-amber-500/[0.06]"
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Globe className={`h-4 w-4 shrink-0 ${
+                  runBooking.status === "accepted" ? "text-blue-400" :
+                  runBooking.status === "received" ? "text-emerald-400" :
+                  runBooking.status === "rejected" ? "text-red-400" : "text-amber-400"
+                }`} />
+                <p className={`text-xs font-semibold ${
+                  runBooking.status === "accepted" ? "text-blue-300" :
+                  runBooking.status === "received" ? "text-emerald-300" :
+                  runBooking.status === "rejected" ? "text-red-300" : "text-amber-300"
+                }`}>
+                  {runBooking.status === "pending"  && "Awaiting carrier acceptance"}
+                  {runBooking.status === "accepted" && "Carrier accepted — drop off your shipments"}
+                  {runBooking.status === "received" && "Received by carrier"}
+                  {runBooking.status === "rejected" && "Carrier declined this booking"}
+                </p>
+              </div>
+              {runBooking.status === "accepted" && runBooking.dropoffToken && (
+                <button
+                  onClick={() => setDropoffQrOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 h-7 text-xs font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  <QrCode className="h-3 w-3" /> Drop-off QR
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-stone-500">
+              {runBooking.carrierName ?? "Carrier"} · {runBooking.originCity} → {runBooking.destCity} · {formatNaira(runBooking.quotedRateKobo / 100)}
+            </p>
           </div>
         )}
 
@@ -506,6 +642,192 @@ export default function DispatchRunDetailPage() {
           <p className="text-sm text-stone-200">{run.notes}</p>
         </div>
       )}
+
+      {/* ── Carrier dispatch modal ─────────────────────────────────────────── */}
+      {dispatchOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full sm:max-w-md rounded-t-xl sm:rounded-xl border border-white/[0.08] bg-[#0c1522] shadow-2xl shadow-black/40 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] shrink-0">
+              <div>
+                <p className="text-sm font-semibold text-white">Dispatch to carrier</p>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  {dispatchStep === "cities" ? "Enter the route cities to see carrier rates" :
+                   dispatchStep === "rates"  ? "Choose a carrier for this run" :
+                   "Confirm carrier booking"}
+                </p>
+              </div>
+              <button onClick={() => setDispatchOpen(false)} className="text-stone-600 hover:text-stone-300 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {dispatchStep === "cities" && (
+              <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                <div>
+                  <label className="block text-xs font-medium text-stone-300 mb-1.5">Origin city</label>
+                  <CityAutocomplete
+                    value={originCity}
+                    onChange={setOriginCity}
+                    placeholder="e.g. Lagos"
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-stone-300 mb-1.5">Destination city</label>
+                  <CityAutocomplete
+                    value={destCity}
+                    onChange={setDestCity}
+                    placeholder="e.g. Abuja"
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                  />
+                </div>
+                {dispatchError && (
+                  <p className="flex items-center gap-1.5 text-xs text-red-400 bg-red-500/[0.1] border border-red-500/20 rounded-lg px-3 py-2">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />{dispatchError}
+                  </p>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setDispatchOpen(false)}
+                    className="flex-none rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 h-9 text-xs font-medium text-stone-400 hover:text-white hover:bg-white/[0.06] transition-all">
+                    Cancel
+                  </button>
+                  <button onClick={handleFetchRates} disabled={ratesLoading}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 h-9 text-xs font-semibold text-white disabled:opacity-60 transition-all">
+                    {ratesLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Fetching rates…</> : "See carrier rates →"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {dispatchStep === "rates" && (
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.06] text-xs text-stone-500 shrink-0">
+                  <span className="font-medium text-stone-300">{originCity}</span>
+                  <ArrowRight className="h-3 w-3" />
+                  <span className="font-medium text-stone-300">{destCity}</span>
+                  <span>· {run?.legs.length} waybill{(run?.legs.length ?? 0) !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="p-4 space-y-2 overflow-y-auto flex-1">
+                  {rates.length === 0 ? (
+                    <div className="py-10 text-center space-y-1">
+                      <p className="text-sm text-stone-500">No carriers available for this route.</p>
+                      <button onClick={() => setDispatchStep("cities")} className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                        Try different cities
+                      </button>
+                    </div>
+                  ) : rates.map((r, i) => (
+                    <button key={i} onClick={() => { setSelectedRate(r); setDispatchStep("confirm"); }}
+                      className={`w-full text-left rounded-lg border p-3 transition-all ${
+                        selectedRate?.carrierId === r.carrierId
+                          ? "border-orange-500/40 bg-orange-500/[0.08]"
+                          : "border-white/[0.06] bg-white/[0.03] hover:border-orange-500/20 hover:bg-white/[0.05]"
+                      }`}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-stone-200">{r.carrierName ?? r.serviceName}</p>
+                        <p className="text-sm font-bold text-white">{formatNaira(r.totalCharge.amount)}</p>
+                      </div>
+                      <p className="text-[11px] text-stone-500 mt-0.5 capitalize">
+                        {r.pricingModel?.replace("_", " ")}
+                        {r.transitDays != null && ` · ${r.transitDays}d transit`}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+                <div className="px-4 py-3 border-t border-white/[0.06] shrink-0">
+                  <button onClick={() => setDispatchStep("cities")}
+                    className="text-xs text-stone-500 hover:text-stone-300 transition-colors">← Change route</button>
+                </div>
+              </div>
+            )}
+
+            {dispatchStep === "confirm" && selectedRate && (
+              <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-stone-500">Carrier</span>
+                    <span className="font-medium text-stone-200">{selectedRate.carrierName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-500">Route</span>
+                    <span className="font-medium text-stone-200">{originCity} → {destCity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-500">Waybills</span>
+                    <span className="font-medium text-stone-200">{run?.legs.length}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-white/[0.06] pt-2">
+                    <span className="text-stone-500">Rate</span>
+                    <span className="font-bold text-white">{formatNaira(selectedRate.totalCharge.amount)}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-stone-500">
+                  Payment is deducted from your OLI Switch wallet when the carrier accepts. You'll receive a drop-off QR to show at their hub.
+                </p>
+                {dispatchError && (
+                  <p className="flex items-center gap-1.5 text-xs text-red-400 bg-red-500/[0.1] border border-red-500/20 rounded-lg px-3 py-2">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />{dispatchError}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={() => setDispatchStep("rates")}
+                    className="flex-none rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 h-9 text-xs font-medium text-stone-400 hover:text-white hover:bg-white/[0.06] transition-all">
+                    Back
+                  </button>
+                  <button onClick={handleDispatchToCarrier} disabled={dispatchWorking}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-blue-500 to-blue-600 h-9 text-xs font-semibold text-white disabled:opacity-60 transition-all">
+                    {dispatchWorking
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Booking…</>
+                      : <><Globe className="h-3.5 w-3.5" />Send booking request</>}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Drop-off QR modal ──────────────────────────────────────────────── */}
+      {dropoffQrOpen && runBooking?.dropoffToken && (() => {
+        const dropoffUrl = `${window.location.origin}/dropoff/${runBooking.dropoffToken}`;
+        return (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm">
+            <div className="relative w-full sm:max-w-sm rounded-t-xl sm:rounded-xl border border-white/[0.08] bg-[#0c1522] shadow-2xl shadow-black/40 overflow-hidden">
+              <div className="flex items-start justify-between px-5 py-4 border-b border-white/[0.06]">
+                <div>
+                  <p className="text-sm font-semibold text-white">Carrier drop-off QR</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Show this at {runBooking.carrierName ?? "the carrier hub"} · {runBooking.waybillIds?.length ?? 0} waybill{(runBooking.waybillIds?.length ?? 0) !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <button onClick={() => setDropoffQrOpen(false)} className="text-stone-600 hover:text-stone-300 mt-0.5 transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-5 flex flex-col items-center gap-4">
+                <div className="rounded-lg border border-white/[0.08] p-3 bg-white">
+                  <QRCodeSVG value={dropoffUrl} size={200} />
+                </div>
+                <div className="w-full space-y-2">
+                  <button
+                    onClick={() => navigator.clipboard.writeText(dropoffUrl)}
+                    className="w-full inline-flex items-center justify-center rounded-lg border border-white/[0.06] h-9 text-xs text-stone-500 hover:text-stone-300 transition-colors"
+                  >
+                    Copy drop-off link
+                  </button>
+                  {runBooking.dropoffTokenExpiresAt && (
+                    <p className="text-[11px] text-stone-600 text-center">
+                      Valid until {new Date(runBooking.dropoffTokenExpiresAt).toLocaleDateString("en-NG", { day: "2-digit", month: "short", year: "numeric" })}
+                    </p>
+                  )}
+                </div>
+                <p className="text-[11px] text-stone-600 text-center">
+                  The carrier scans this QR at their hub to confirm receipt of all shipments.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Run handover QR modal */}
       {handoverQrOpen && handoverToken && (() => {

@@ -178,6 +178,128 @@ export const carrierRoutesApi = {
     apiClient.delete(`/api/carriers/routes/${id}`).then(() => undefined),
 };
 
+// ── Run bookings ─────────────────────────────────────────────────────────────
+
+export type RunBookingStatus = "pending" | "accepted" | "rejected" | "received";
+
+export type RunBooking = {
+  id: string;
+  bookerOperatorId: string;
+  carrierOperatorId: string;
+  originCity: string;
+  destCity: string;
+  distanceKm: number | null;
+  quotedRateKobo: number;
+  bookingFeeKobo: number;
+  status: RunBookingStatus;
+  notes: string | null;
+  sourceRunId: string | null;
+  dropoffToken: string | null;
+  dropoffTokenExpiresAt: string | null;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  expiresAt: string | null;
+  receivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // joined
+  bookerName?: string;
+  carrierName?: string;
+  waybillIds?: string[];
+  waybillCount?: number;
+};
+
+export type DropoffInfo = {
+  id: string;
+  status: RunBookingStatus;
+  carrierName: string | null;
+  bookerName: string | null;
+  originCity: string;
+  destCity: string;
+  receivedAt: string | null;
+  waybills: Array<{ waybillId: string; waybillNumber: string | null }>;
+};
+
+function toRunBooking(raw: Record<string, unknown>): RunBooking {
+  return {
+    id:                    raw.id as string,
+    bookerOperatorId:      raw.booker_operator_id as string,
+    carrierOperatorId:     raw.carrier_operator_id as string,
+    originCity:            raw.origin_city as string,
+    destCity:              raw.dest_city as string,
+    distanceKm:            raw.distance_km != null ? Number(raw.distance_km) : null,
+    quotedRateKobo:        Number(raw.quoted_rate_kobo),
+    bookingFeeKobo:        Number(raw.booking_fee_kobo),
+    status:                raw.status as RunBookingStatus,
+    notes:                 (raw.notes as string | null) ?? null,
+    sourceRunId:           (raw.source_run_id as string | null) ?? null,
+    dropoffToken:          (raw.dropoff_token as string | null) ?? null,
+    dropoffTokenExpiresAt: (raw.dropoff_token_expires_at as string | null) ?? null,
+    acceptedAt:            (raw.accepted_at as string | null) ?? null,
+    rejectedAt:            (raw.rejected_at as string | null) ?? null,
+    expiresAt:             (raw.expires_at as string | null) ?? null,
+    receivedAt:            (raw.received_at as string | null) ?? null,
+    createdAt:             raw.created_at as string,
+    updatedAt:             raw.updated_at as string,
+    bookerName:            (raw.booker_name as string | undefined) ?? undefined,
+    carrierName:           (raw.carrier_name as string | undefined) ?? undefined,
+    waybillIds:            (raw.waybill_ids as string[] | undefined) ?? undefined,
+    waybillCount:          raw.waybill_count != null ? Number(raw.waybill_count) : undefined,
+  };
+}
+
+export const runBookingApi = {
+  create: (data: {
+    carrierOperatorId: string;
+    originCity: string;
+    destCity: string;
+    distanceKm?: number | null;
+    quotedRateKobo: number;
+    notes?: string;
+    sourceRunId?: string;
+    waybillIds: string[];
+  }): Promise<RunBooking> =>
+    apiClient
+      .post<Record<string, unknown>>("/api/carriers/run-bookings", data)
+      .then((r) => toRunBooking(r.data)),
+
+  listMine: (params?: { limit?: number; offset?: number }): Promise<RunBooking[]> =>
+    apiClient
+      .get<{ bookings: Record<string, unknown>[] }>("/api/carriers/run-bookings", { params })
+      .then((r) => r.data.bookings.map(toRunBooking)),
+
+  getByRunId: (sourceRunId: string): Promise<RunBooking | null> =>
+    apiClient
+      .get<Record<string, unknown>>(`/api/carriers/run-bookings/by-run/${sourceRunId}`)
+      .then((r) => toRunBooking(r.data))
+      .catch((e: { response?: { status?: number } }) => e?.response?.status === 404 ? null : Promise.reject(e)),
+
+  listIncoming: (params?: { status?: RunBookingStatus; limit?: number; offset?: number }): Promise<RunBooking[]> =>
+    apiClient
+      .get<{ bookings: Record<string, unknown>[] }>("/api/carriers/incoming-run-bookings", { params })
+      .then((r) => r.data.bookings.map(toRunBooking)),
+
+  accept: (bookingId: string): Promise<RunBooking> =>
+    apiClient
+      .patch<Record<string, unknown>>(`/api/carriers/run-bookings/${bookingId}/accept`)
+      .then((r) => toRunBooking(r.data)),
+
+  reject: (bookingId: string, notes?: string): Promise<RunBooking> =>
+    apiClient
+      .patch<Record<string, unknown>>(`/api/carriers/run-bookings/${bookingId}/reject`, { notes })
+      .then((r) => toRunBooking(r.data)),
+
+  getDropoffInfo: (token: string): Promise<DropoffInfo> =>
+    apiClient
+      .get<DropoffInfo>(`/api/carriers/run-bookings/dropoff/${token}`)
+      .then((r) => r.data),
+
+  confirmDropoff: (token: string): Promise<{ confirmedCount: number; alreadyReceived?: boolean }> =>
+    apiClient
+      .post<{ confirmedCount: number; alreadyReceived?: boolean }>(`/api/carriers/run-bookings/dropoff/${token}/confirm`)
+      .then((r) => r.data),
+};
+
 export const carrierApi = {
   getProfile: (): Promise<CarrierProfile | null> =>
     apiClient

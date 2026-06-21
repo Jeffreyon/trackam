@@ -36,6 +36,7 @@ import DispatchRunDetailPage from "@/pages/logistics/DispatchRunDetailPage";
 import RidersPage from "@/pages/logistics/RidersPage";
 import StaffPage from "@/pages/logistics/StaffPage";
 import ErrorPage from "@/components/common/ErrorPage";
+import DropoffPage from "@/pages/DropoffPage";
 import { adminLoader, requireAuth } from "./scripts/auth.loader";
 
 const router = createBrowserRouter([
@@ -57,6 +58,7 @@ const router = createBrowserRouter([
   { path: "/handover/driver", element: <DriverHandoverPage /> },
   { path: "/handover/staff", element: <StaffHandoverPage /> },
   { path: "/join", element: <JoinLegPage /> },
+  { path: "/dropoff/:token", element: <DropoffPage /> },
   {
     path: "/dashboard",
     loader: requireAuth,
