@@ -228,6 +228,44 @@ export default function DriverHandoverPage() {
     return () => clearInterval(t);
   }, [secondsLeft]);
 
+  // Poll custodian session while showing QR to detect remote confirmation.
+  // When the receiver scans and confirms, either the session ends (single
+  // shipment) or the active shipment is removed from the run list.
+  useEffect(() => {
+    if (phase !== "qr" || !custodianToken) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const info = await custodianApi.getMe(custodianToken);
+        if (info.mode === "run") {
+          const remaining = info.shipments ?? [];
+          if (bulkMode) {
+            const prevCount = custody?.shipments?.length ?? 0;
+            if (remaining.length < prevCount) {
+              setCustody(info);
+              setPhase(remaining.length === 0 ? "success" : "run-custody");
+            }
+          } else if (activeRunShipment) {
+            const stillThere = remaining.some((s) => s.shipmentId === activeRunShipment.shipmentId);
+            if (!stillThere) {
+              setCustody(info);
+              setPhase(remaining.length === 0 ? "success" : "run-custody");
+            }
+          }
+        }
+        // Single session: getMe throwing is handled in the catch block below.
+      } catch {
+        // Session gone = custody was passed for a single-shipment session.
+        if (custody?.mode !== "run") {
+          setPhase("success");
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, custodianToken]);
+
   async function handleRequestOtp(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
@@ -1262,9 +1300,15 @@ export default function DriverHandoverPage() {
             </div>
 
             {secondsLeft > 0 ? (
-              <p className="text-xs font-medium text-amber-400">
-                Expires in {mins}:{String(secs).padStart(2, "0")}
-              </p>
+              <div className="flex flex-col items-center gap-1.5">
+                <p className="text-xs font-medium text-amber-400">
+                  Expires in {mins}:{String(secs).padStart(2, "0")}
+                </p>
+                <p className="text-[10px] text-stone-600 flex items-center gap-1.5">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                  Waiting for scan…
+                </p>
+              </div>
             ) : (
               <p className="text-xs font-medium text-red-600">Expired — generate a new code</p>
             )}
