@@ -16,11 +16,6 @@ import { formatNaira, formatNairaRaw } from "@/lib/format";
 import { StatusBadge } from "@/components/logistics/StatusBadge";
 import type { ShipmentStatus } from "@/services/logistics";
 
-const STATUS_TRANSITIONS: Partial<Record<RunStatus, RunStatus>> = {
-  loading:    "in_transit",
-  in_transit: "completed",
-  // with_carrier: no manual transition — carrier side drives completion via webhook
-};
 
 const STATUS_LABELS: Record<RunStatus, string> = {
   loading:      "Loading at dock",
@@ -35,7 +30,6 @@ export default function DispatchRunDetailPage() {
   const navigate = useNavigate();
   const [run, setRun] = useState<DispatchRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [availableWaybills, setAvailableWaybills] = useState<OperatorWaybill[]>([]);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -45,6 +39,9 @@ export default function DispatchRunDetailPage() {
   const [editingRider, setEditingRider] = useState(false);
   const [riderIdInput, setRiderIdInput] = useState("");
   const [riders, setRiders] = useState<Rider[]>([]);
+  const [editingCosts, setEditingCosts] = useState(false);
+  const [distanceInput, setDistanceInput] = useState("");
+  const [riderFeeInput, setRiderFeeInput] = useState("");
 
   const [handoverQrOpen, setHandoverQrOpen] = useState(false);
   const [handoverToken, setHandoverToken] = useState<string | null>(null);
@@ -118,16 +115,14 @@ export default function DispatchRunDetailPage() {
     return () => clearInterval(timer);
   }, [id, runBooking?.status]);
 
-  async function handleStatusChange(next: RunStatus) {
+  async function handleSaveCosts() {
     if (!id) return;
-    setUpdating(true);
-    try {
-      const updated = await runsApi.updateStatus(id, next);
-      setRun((prev) => prev ? { ...prev, ...updated } : prev);
-      loadRun().catch(() => {}); // refresh leg handover counts after status change
-    } finally {
-      setUpdating(false);
-    }
+    const updated = await runsApi.update(id, {
+      distanceKm: distanceInput ? parseInt(distanceInput, 10) : 0,
+      riderFee:   riderFeeInput ? parseInt(riderFeeInput, 10) : 0,
+    });
+    setRun((prev) => prev ? { ...prev, ...updated } : prev);
+    setEditingCosts(false);
   }
 
   async function handleRemoveLeg(shipmentId: string) {
@@ -379,7 +374,6 @@ export default function DispatchRunDetailPage() {
   if (loading) return <div className="animate-pulse h-64 rounded-lg bg-white/[0.03] border border-white/[0.06]" />;
   if (!run) return <p className="text-sm text-stone-500">Run not found.</p>;
 
-  const nextStatus = STATUS_TRANSITIONS[run.status];
   const isLocked = run.status !== "loading";
   const inputCls = "rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 h-8 text-sm text-white focus:outline-none focus:border-orange-500/40 transition-colors";
 
@@ -425,14 +419,8 @@ export default function DispatchRunDetailPage() {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[11px] text-stone-600">Total value</p>
-            <p className="text-sm font-bold text-white">{formatNaira(run.totalValue)}</p>
-            {run.totalCost > 0 && (
-              <>
-                <p className="text-[11px] text-stone-600 mt-1.5">Total cost</p>
-                <p className="text-xs font-semibold text-stone-300">{formatNaira(run.totalCost)}</p>
-              </>
-            )}
+            <p className="text-[11px] text-stone-600">Total cost</p>
+            <p className="text-sm font-bold text-white">{run.totalCost > 0 ? formatNaira(run.totalCost) : "—"}</p>
           </div>
         </div>
 
@@ -452,22 +440,59 @@ export default function DispatchRunDetailPage() {
           </div>
         )}
 
-        {(run.distanceKm > 0 || run.totalCost > 0) && (
-          <div className="grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-3 text-xs">
-            <div>
-              <p className="text-[11px] text-stone-600">Distance</p>
-              <p className="font-medium text-stone-200">{run.distanceKm} km</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-stone-600">Fuel cost</p>
-              <p className="font-medium text-stone-200">{formatNaira(run.fuelCost)}</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-stone-600">Rider fee</p>
-              <p className="font-medium text-stone-200">{formatNaira(run.riderFee)}</p>
-            </div>
+        <div className="grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-3 text-xs">
+          <div>
+            <p className="text-[11px] text-stone-600">Distance</p>
+            {editingCosts ? (
+              <input
+                type="number"
+                value={distanceInput}
+                onChange={(e) => setDistanceInput(e.target.value)}
+                placeholder="km"
+                className="mt-0.5 w-full rounded border border-white/[0.08] bg-white/[0.04] px-1.5 h-6 text-xs text-white focus:outline-none focus:border-orange-500/40"
+              />
+            ) : (
+              <p className="font-medium text-stone-200">{run.distanceKm > 0 ? `${run.distanceKm} km` : "—"}</p>
+            )}
           </div>
-        )}
+          <div>
+            <p className="text-[11px] text-stone-600">Fuel cost</p>
+            <p className="font-medium text-stone-200">{run.fuelCost > 0 ? formatNaira(run.fuelCost) : "—"}</p>
+            {editingCosts && <p className="text-[10px] text-stone-600 mt-0.5">Auto from distance</p>}
+          </div>
+          <div>
+            <div className="flex items-center gap-1">
+              <p className="text-[11px] text-stone-600">Rider fee</p>
+              {!editingCosts && !isLocked && (
+                <button
+                  onClick={() => {
+                    setDistanceInput(run.distanceKm > 0 ? String(run.distanceKm) : "");
+                    setRiderFeeInput(run.riderFee > 0 ? String(Math.round(run.riderFee / 100)) : "");
+                    setEditingCosts(true);
+                  }}
+                  className="text-stone-600 hover:text-stone-300 transition-colors"
+                >
+                  <Edit2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            {editingCosts ? (
+              <div className="flex items-center gap-1 mt-0.5">
+                <input
+                  type="number"
+                  value={riderFeeInput}
+                  onChange={(e) => setRiderFeeInput(e.target.value)}
+                  placeholder="₦"
+                  className="w-full rounded border border-white/[0.08] bg-white/[0.04] px-1.5 h-6 text-xs text-white focus:outline-none focus:border-orange-500/40"
+                />
+                <button onClick={handleSaveCosts} className="text-emerald-400 hover:text-emerald-300 shrink-0"><Check className="h-3.5 w-3.5" /></button>
+                <button onClick={() => setEditingCosts(false)} className="text-stone-600 hover:text-stone-300 shrink-0"><X className="h-3.5 w-3.5" /></button>
+              </div>
+            ) : (
+              <p className="font-medium text-stone-200">{run.riderFee > 0 ? formatNaira(run.riderFee) : "—"}</p>
+            )}
+          </div>
+        </div>
 
         <div className="grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-3 text-xs">
           <div>
@@ -520,20 +545,11 @@ export default function DispatchRunDetailPage() {
           </div>
         )}
 
-        {nextStatus && (
-          <button onClick={() => handleStatusChange(nextStatus)} disabled={updating}
-            className={["w-full inline-flex items-center justify-center gap-2 rounded-lg h-12 text-sm font-semibold transition-all disabled:opacity-60",
-              nextStatus === "in_transit" ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-emerald-600 text-white hover:bg-emerald-700"].join(" ")}>
-            {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : nextStatus === "in_transit" ? <Truck className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-            {nextStatus === "in_transit" ? "Depart — mark as in transit" : "Mark as completed"}
-          </button>
-        )}
-
-        {(run.status === "loading" || run.status === "in_transit") && run.legs.length > 0 && (() => {
-          const hasUnhandled = run.legs.some((l) => l.handoverCount === 0);
-          const allHandedOver = !hasUnhandled;
+        {(run.status === "loading" || run.status === "in_transit") && (() => {
+          const noLegs = run.legs.length === 0;
+          const hasUnhandled = noLegs || run.legs.some((l) => l.handoverCount === 0);
+          const allHandedOver = !noLegs && !hasUnhandled;
           const isDropoffAccepted = runBooking?.status === "accepted" && !!runBooking.dropoffToken;
-          // Show this block while there are unhandled legs, or while a carrier action is still pending
           const show = hasUnhandled || isDropoffAccepted;
           if (!show) return null;
 
@@ -545,8 +561,8 @@ export default function DispatchRunDetailPage() {
                 {hasUnhandled && (
                   <button
                     onClick={handleHandoverToDriver}
-                    disabled={handoverWorking}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/[0.08] text-purple-300 h-12 text-sm font-medium hover:bg-purple-500/[0.12] transition-all disabled:opacity-60"
+                    disabled={handoverWorking || noLegs}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/[0.08] text-purple-300 h-12 text-sm font-medium hover:bg-purple-500/[0.12] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {handoverWorking
                       ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -559,7 +575,8 @@ export default function DispatchRunDetailPage() {
                 {!runBooking ? (
                   <button
                     onClick={openDispatch}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-12 px-3 text-sm font-medium hover:bg-blue-500/[0.12] transition-all"
+                    disabled={noLegs}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/[0.08] text-blue-300 h-12 px-3 text-sm font-medium hover:bg-blue-500/[0.12] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <Globe className="h-4 w-4 shrink-0" />
                     Dispatch to carrier
@@ -660,26 +677,6 @@ export default function DispatchRunDetailPage() {
           );
         })()}
 
-        {run.status === "in_transit" && run.legs.length > 0 &&
-          run.legs.every((l) => ["delivered", "failed", "ghosted"].includes(l.status)) && (
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-4 flex items-start gap-3">
-            <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-amber-300">All shipments handed over</p>
-              <p className="text-[11px] text-amber-400/70 mt-0.5">
-                All {run.legs.length} shipments in this run have been delivered or closed.
-              </p>
-              <button
-                onClick={() => handleStatusChange("completed")}
-                disabled={updating}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-3 h-7 text-xs font-semibold hover:bg-amber-700 disabled:opacity-60 transition-colors"
-              >
-                {updating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                Mark run as completed
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Waybill legs */}
