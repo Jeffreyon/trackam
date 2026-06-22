@@ -1461,8 +1461,8 @@ export default function DriverHandoverPage() {
           </div>
         )}
 
-        {/* Confirmed — run session: go back to remaining list */}
-        {(phase === "success" || confirmed) && custody?.mode === "run" && (
+        {/* Confirmed — run session: per-shipment success */}
+        {confirmed && custody?.mode === "run" && (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
             <div className="h-16 w-16 rounded-full bg-green-500/15 flex items-center justify-center">
               <CheckCircle2 className="h-8 w-8 text-green-600" />
@@ -1483,6 +1483,21 @@ export default function DriverHandoverPage() {
             >
               Back to my run <ChevronRight className="h-3.5 w-3.5" />
             </button>
+          </div>
+        )}
+
+        {/* All done — run session: last shipment confirmed, nothing left */}
+        {!confirmed && phase === "success" && custody?.mode === "run" && (
+          <div className="flex-1 flex flex-col items-center justify-center text-center gap-5">
+            <div className="h-16 w-16 rounded-full bg-green-500/15 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+            <div>
+              <p className="text-base font-semibold text-white">Run complete</p>
+              <p className="text-xs text-stone-400 mt-1">
+                All shipments in this run have been handed over.
+              </p>
+            </div>
           </div>
         )}
 
