@@ -416,6 +416,11 @@ export default function DispatchRunDetailPage() {
                 </div>
               )}
               <p className="text-xs text-stone-500 mt-0.5">{STATUS_LABELS[run.status]}</p>
+              {(run.originCity || run.destCity) && (
+                <p className="text-xs text-stone-400 mt-0.5">
+                  {run.originCity ?? "?"} → {run.destCity ?? "?"}
+                </p>
+              )}
             </div>
           </div>
           <div className="text-right shrink-0">
