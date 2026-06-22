@@ -171,6 +171,7 @@ async function mirrorJoinedShipment({ shipmentId, userId, waybillId, inlineWaybi
   if (!waybill?.id) {
     const { status: wStatus, data: fetched } = await oliGet(`/api/waybill/${waybillId}`, userId);
     if (wStatus === 200 && fetched?.id) waybill = fetched;
+    else console.warn(`[waybill.controller] mirrorJoinedShipment: OLI waybill fetch returned ${wStatus} for ${waybillId} — local mirror skipped, recover will fix on next page load`);
   }
   if (waybill?.id) {
     await upsertLiteWaybill(waybill);
@@ -352,16 +353,38 @@ router.post("/recover/:shipmentId", localAuthOptional, asyncHandler(async (req, 
     return res.status(404).json({ error: "Shipment not found in OLI switch" });
   }
 
-  // Fetch full waybill details so we have goods description etc.
+  // Try to fetch full waybill details (PII-complete). If OLI denies cross-operator
+  // access or the fetch fails for any reason, fall back to the partial data already
+  // present in the mine-list item — it has enough to create a functional local record.
+  let waybill = null;
   try {
-    const { status: wStatus, data: waybill } = await oliGet(`/api/waybill/${match.id}`, userId);
-    if (wStatus !== 200 || !waybill?.id) {
-      return res.status(502).json({ error: "Could not fetch waybill details from OLI switch" });
-    }
+    const { status: wStatus, data: fetched } = await oliGet(`/api/waybill/${match.id}`, userId);
+    if (wStatus === 200 && fetched?.id) waybill = fetched;
+  } catch { /* non-fatal — will use mine-list fallback below */ }
 
+  if (!waybill?.id) {
+    // Fallback: construct a minimal waybill from the mine-list item.
+    // The mine list includes the fields required by upsertLocalShipment.
+    waybill = {
+      id:               match.id,
+      waybillNumber:    match.waybillNumber    || null,
+      goodsDescription: match.goodsDescription || "Goods",
+      pickupLocation:   match.pickupLocation   || "—",
+      deliveryLocation: match.deliveryLocation || "—",
+      senderName:       match.senderName       || "—",
+      senderPhone:      match.senderPhone       || "—",
+      receiverName:     match.receiverName     || "—",
+      receiverPhone:    match.receiverPhone    || "—",
+      receiverAddress:  match.deliveryLocation || "—",
+      shipmentValue:    match.shipmentValue    || null,
+      createdAt:        match.claimedAt        || null,
+    };
+    console.warn(`[waybill.controller] recover/${shipmentId}: using mine-list fallback for waybill ${match.id}`);
+  }
+
+  try {
     await upsertLiteWaybill(waybill);
     await upsertLocalShipment({ shipmentId, userId, waybillId: waybill.id, waybill });
-
     return res.json({ recovered: true, shipmentId });
   } catch (err) {
     return res.status(500).json({ error: "Failed to mirror shipment locally", detail: err.message });
