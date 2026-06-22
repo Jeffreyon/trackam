@@ -704,19 +704,38 @@ export default function DispatchRunDetailPage() {
               <p className="text-xs text-stone-500">No unassigned waybills. <Link to="/dashboard/waybills" className="text-orange-400 underline">Claim or join a waybill first.</Link></p>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {availableWaybills.map((w) => (
-                  <div key={w.id} className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-mono font-semibold text-stone-200 truncate">{w.waybillNumber}</p>
-                      <p className="text-[11px] text-stone-500 truncate">{w.goodsDescription} · {w.pickupLocation} to {w.deliveryLocation}</p>
+                {availableWaybills.map((w) => {
+                  const offRoute = Boolean(
+                    run.destCity &&
+                    !w.deliveryLocation.toLowerCase().includes(run.destCity.toLowerCase())
+                  );
+                  return (
+                    <div key={w.id} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${offRoute ? "border-amber-500/25 bg-amber-500/[0.05]" : "border-white/[0.06] bg-white/[0.03]"}`}>
+                      <div className="min-w-0">
+                        <p className="text-xs font-mono font-semibold text-stone-200 truncate">{w.waybillNumber}</p>
+                        <p className="text-[11px] text-stone-500 truncate">{w.goodsDescription} · {w.pickupLocation} to {w.deliveryLocation}</p>
+                        {offRoute && (
+                          <p className="text-[10px] text-amber-400 flex items-center gap-1 mt-0.5">
+                            <AlertCircle className="h-2.5 w-2.5 shrink-0" />
+                            Delivers to {w.deliveryLocation} — run goes to {run.destCity}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (offRoute && !window.confirm(
+                            `This waybill delivers to ${w.deliveryLocation}, but this run goes to ${run.destCity}.\n\nAdd anyway?`
+                          )) return;
+                          handleAddLeg(w.shipmentId!);
+                        }}
+                        disabled={addingId === w.shipmentId}
+                        className="ml-3 shrink-0 inline-flex items-center gap-1 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 text-white px-2.5 h-7 text-xs font-medium hover:shadow-orange-500/20 hover:shadow-sm transition-all disabled:opacity-60">
+                        {addingId === w.shipmentId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                        Add
+                      </button>
                     </div>
-                    <button onClick={() => handleAddLeg(w.shipmentId!)} disabled={addingId === w.shipmentId}
-                      className="ml-3 shrink-0 inline-flex items-center gap-1 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600 text-white px-2.5 h-7 text-xs font-medium hover:shadow-orange-500/20 hover:shadow-sm transition-all disabled:opacity-60">
-                      {addingId === w.shipmentId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                      Add
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -747,13 +766,18 @@ export default function DispatchRunDetailPage() {
                   <p className="text-[11px] text-stone-500 truncate mt-0.5">
                     {leg.goodsDescription} · {leg.pickupLocation} to {leg.deliveryLocation}
                   </p>
-                  <div className="flex items-center gap-3 mt-1">
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
                     <StatusBadge status={leg.status as ShipmentStatus} />
                     <span className="flex items-center gap-1 text-[10px] text-stone-500">
                       <ShieldCheck className="h-3 w-3" />{leg.handoverCount} Handover{leg.handoverCount !== 1 ? "s" : ""}
                     </span>
                     {leg.shipmentValue > 0 && (
                       <span className="text-[10px] text-stone-500">{formatNaira(leg.shipmentValue)}</span>
+                    )}
+                    {run.destCity && !leg.deliveryLocation.toLowerCase().includes(run.destCity.toLowerCase()) && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/[0.08] border border-amber-500/20 rounded px-1.5 py-0.5">
+                        <AlertCircle className="h-2.5 w-2.5 shrink-0" /> Route mismatch
+                      </span>
                     )}
                   </div>
                 </div>
