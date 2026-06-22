@@ -6,10 +6,11 @@ import { formatNaira } from "@/lib/format";
 import { QuickDispatch } from "@/components/logistics/QuickDispatch";
 
 const STATUS_CONFIG: Record<RunStatus, { label: string; dot: string; badge: string }> = {
-  loading:    { label: "Loading at dock", dot: "bg-amber-500",  badge: "bg-amber-500/[0.1] text-amber-400 border-amber-500/20" },
-  in_transit: { label: "In transit",      dot: "bg-blue-500",   badge: "bg-blue-500/[0.1] text-blue-400 border-blue-500/20" },
-  completed:  { label: "Completed",       dot: "bg-emerald-500",  badge: "bg-emerald-500/[0.1] text-emerald-400 border-emerald-500/20" },
-  cancelled:  { label: "Cancelled",       dot: "bg-stone-500",  badge: "bg-stone-500/[0.12] text-stone-400 border-stone-500/20" },
+  loading:      { label: "Loading at dock", dot: "bg-amber-500",   badge: "bg-amber-500/[0.1] text-amber-400 border-amber-500/20" },
+  in_transit:   { label: "In transit",      dot: "bg-blue-500",    badge: "bg-blue-500/[0.1] text-blue-400 border-blue-500/20" },
+  with_carrier: { label: "With carrier",    dot: "bg-orange-500",  badge: "bg-orange-500/[0.1] text-orange-400 border-orange-500/20" },
+  completed:    { label: "Completed",       dot: "bg-emerald-500", badge: "bg-emerald-500/[0.1] text-emerald-400 border-emerald-500/20" },
+  cancelled:    { label: "Cancelled",       dot: "bg-stone-500",   badge: "bg-stone-500/[0.12] text-stone-400 border-stone-500/20" },
 };
 
 type Filter = "all" | "loading" | "in_transit" | "completed";
@@ -70,10 +71,11 @@ export default function DispatchRunsPage() {
                 className="w-full text-left rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] hover:border-orange-500/20 transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${run.status === "in_transit" ? "bg-blue-500/[0.12]" : run.status === "completed" ? "bg-emerald-500/[0.12]" : "bg-amber-500/[0.12]"}`}>
-                      {run.status === "completed" ? <CheckCircle2 className={`h-4 w-4 ${run.status === "completed" ? "text-emerald-400" : ""}`} /> :
-                       run.status === "cancelled" ? <XCircle className="h-4 w-4 text-stone-500" /> :
-                       run.status === "in_transit" ? <Navigation className="h-4 w-4 text-blue-400" /> :
+                    <div className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${run.status === "in_transit" ? "bg-blue-500/[0.12]" : run.status === "completed" ? "bg-emerald-500/[0.12]" : run.status === "with_carrier" ? "bg-orange-500/[0.12]" : "bg-amber-500/[0.12]"}`}>
+                      {run.status === "completed"    ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> :
+                       run.status === "cancelled"    ? <XCircle className="h-4 w-4 text-stone-500" /> :
+                       run.status === "in_transit"   ? <Navigation className="h-4 w-4 text-blue-400" /> :
+                       run.status === "with_carrier" ? <Truck className="h-4 w-4 text-orange-400" /> :
                        <Clock className="h-4 w-4 text-amber-400" />}
                     </div>
                     <div className="min-w-0">

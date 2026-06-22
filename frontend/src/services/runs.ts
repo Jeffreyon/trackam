@@ -65,6 +65,8 @@ export const runsApi = {
     distanceKm?: number;
     riderFee?: number;          // NGN (not kobo) — backend converts
     expectedDeliveryDate?: string;
+    originCity?: string;
+    destCity?: string;
   }) =>
     apiClient.post<DispatchRun>("/api/runs", data).then((r) => r.data),
 

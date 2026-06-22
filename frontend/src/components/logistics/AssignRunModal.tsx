@@ -3,6 +3,7 @@ import { Loader2, Truck, X, User, AlertCircle, ChevronRight, Plus } from "lucide
 import { runsApi, type DispatchRun } from "@/services/runs";
 import { ridersApi, type Rider } from "@/services/logistics";
 import { useNavigate } from "react-router-dom";
+import { CityAutocomplete } from "@/components/common/CityAutocomplete";
 
 interface Props {
   shipmentId: string;
@@ -25,6 +26,11 @@ export default function AssignRunModal({ shipmentId, waybillNumber, onClose }: P
   // "New run" form fields
   const [newName, setNewName] = useState("");
   const [newRiderId, setNewRiderId] = useState("");
+  const [newOriginCity, setNewOriginCity] = useState("");
+  const [newDestCity, setNewDestCity] = useState("");
+  const [newDistanceKm, setNewDistanceKm] = useState("");
+  const [newRiderFee, setNewRiderFee] = useState("");
+  const [newExpectedDate, setNewExpectedDate] = useState("");
 
   useEffect(() => {
     Promise.all([runsApi.list(), ridersApi.list()])
@@ -61,6 +67,11 @@ export default function AssignRunModal({ shipmentId, waybillNumber, onClose }: P
       const run = await runsApi.create({
         name: newName.trim() || undefined,
         riderId: newRiderId,
+        originCity: newOriginCity.trim() || undefined,
+        destCity: newDestCity.trim() || undefined,
+        distanceKm: newDistanceKm ? parseInt(newDistanceKm, 10) : undefined,
+        riderFee: newRiderFee ? parseInt(newRiderFee, 10) : undefined,
+        expectedDeliveryDate: newExpectedDate || undefined,
       });
       await runsApi.addLeg(run.id, shipmentId);
       navigate(`/dashboard/runs/${run.id}`);
@@ -158,34 +169,90 @@ export default function AssignRunModal({ shipmentId, waybillNumber, onClose }: P
             <>
               <p className="text-xs text-stone-500">Set up a new run, then add this waybill to it:</p>
 
-              <div>
-                <label className="block text-[11px] font-medium text-stone-300 mb-1.5">Run name <span className="text-stone-600 font-normal">(optional)</span></label>
-                <input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Morning Lagos run"
-                  className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
-                  autoFocus
-                />
-              </div>
+              <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-0.5">
+                <div>
+                  <label className="block text-[11px] font-medium text-stone-300 mb-1.5">Run name <span className="text-stone-600 font-normal">(optional)</span></label>
+                  <input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="e.g. Morning Lagos run"
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                    autoFocus
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-medium text-stone-300 mb-1.5">
-                  Rider <span className="text-red-400">*</span>
-                </label>
-                <select
-                  value={newRiderId}
-                  onChange={(e) => setNewRiderId(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white focus:outline-none focus:border-orange-500/40 transition-colors"
-                >
-                  <option value="" className="bg-[#0c1522] text-stone-500">Select a rider...</option>
-                  {riders.map((r) => (
-                    <option key={r.id} value={r.id} className="bg-[#0c1522] text-white">
-                      {r.name} · {r.vehicleType}
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <label className="block text-[11px] font-medium text-stone-300 mb-1.5">
+                    Rider <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={newRiderId}
+                    onChange={(e) => setNewRiderId(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white focus:outline-none focus:border-orange-500/40 transition-colors"
+                  >
+                    <option value="" className="bg-[#0c1522] text-stone-500">Select a rider...</option>
+                    {riders.map((r) => (
+                      <option key={r.id} value={r.id} className="bg-[#0c1522] text-white">
+                        {r.name} · {r.vehicleType}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-medium text-stone-300 mb-1.5">Origin city</label>
+                    <CityAutocomplete
+                      value={newOriginCity}
+                      onChange={setNewOriginCity}
+                      placeholder="e.g. Lagos"
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-stone-300 mb-1.5">Dest city</label>
+                    <CityAutocomplete
+                      value={newDestCity}
+                      onChange={setNewDestCity}
+                      placeholder="e.g. Abuja"
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-medium text-stone-300 mb-1.5">Distance <span className="text-stone-600">(km)</span></label>
+                    <input
+                      type="number"
+                      value={newDistanceKm}
+                      onChange={(e) => setNewDistanceKm(e.target.value)}
+                      placeholder="e.g. 120"
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-stone-300 mb-1.5">Rider fee <span className="text-stone-600">(₦)</span></label>
+                    <input
+                      type="number"
+                      value={newRiderFee}
+                      onChange={(e) => setNewRiderFee(e.target.value)}
+                      placeholder="e.g. 15000"
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-stone-300 mb-1.5">Expected delivery <span className="text-stone-600">(optional)</span></label>
+                  <input
+                    type="date"
+                    value={newExpectedDate}
+                    onChange={(e) => setNewExpectedDate(e.target.value)}
+                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white focus:outline-none focus:border-orange-500/40 transition-colors"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2 pt-1">

@@ -58,7 +58,7 @@ export default function DispatchRunModal({ carrier, onClose }: Props) {
 
   useEffect(() => {
     runsApi.list()
-      .then((list) => setRuns(list.filter((r) => r.status === "loading" || r.status === "in_transit")))
+      .then((list) => setRuns(list.filter((r) => r.status === "loading")))
       .catch(() => setRuns([]))
       .finally(() => setRunsLoading(false));
   }, []);
@@ -197,19 +197,7 @@ export default function DispatchRunModal({ carrier, onClose }: Props) {
           {/* ── SETUP STEP ── */}
           {step === "setup" && (
             <>
-              {/* City pickers */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-medium text-stone-400 block mb-1.5">Origin city</label>
-                  <CityAutocomplete value={originCity} onChange={setOriginCity} placeholder="e.g. Lagos" className={inputCls} />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-stone-400 block mb-1.5">Destination city</label>
-                  <CityAutocomplete value={destCity} onChange={setDestCity} placeholder="e.g. Abuja" className={inputCls} />
-                </div>
-              </div>
-
-              {/* Run picker */}
+              {/* Run picker FIRST */}
               <div>
                 <p className="text-[11px] font-medium text-stone-400 mb-2">Select a run to dispatch</p>
                 {runsLoading ? (
@@ -219,7 +207,7 @@ export default function DispatchRunModal({ carrier, onClose }: Props) {
                 ) : runs.length === 0 ? (
                   <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] py-8 text-center space-y-1">
                     <Package className="h-5 w-5 text-stone-600 mx-auto" />
-                    <p className="text-xs text-stone-500">No active runs.</p>
+                    <p className="text-xs text-stone-500">No runs loading at dock.</p>
                     <p className="text-[11px] text-stone-700">Create a run from the Dispatch Runs page first.</p>
                   </div>
                 ) : (
@@ -227,7 +215,11 @@ export default function DispatchRunModal({ carrier, onClose }: Props) {
                     {runs.map((run) => (
                       <button
                         key={run.id}
-                        onClick={() => setSelectedRun(run)}
+                        onClick={() => {
+                          setSelectedRun(run);
+                          if (run.originCity) setOriginCity(run.originCity);
+                          if (run.destCity) setDestCity(run.destCity);
+                        }}
                         className={`w-full text-left flex items-center gap-3 rounded-lg border p-3 transition-all ${
                           selectedRun?.id === run.id
                             ? "border-orange-500/40 bg-orange-500/[0.07]"
@@ -244,9 +236,8 @@ export default function DispatchRunModal({ carrier, onClose }: Props) {
                           <p className="text-[11px] text-stone-500 mt-0.5">
                             {run.legCount} waybill{run.legCount !== 1 ? "s" : ""}
                             {run.distanceKm > 0 && ` · ${run.distanceKm} km`}
-                            <span className={`ml-2 inline-block rounded px-1 py-0.5 text-[9px] font-semibold uppercase ${
-                              run.status === "loading" ? "bg-amber-500/10 text-amber-400" : "bg-blue-500/10 text-blue-400"
-                            }`}>{run.status === "loading" ? "Loading" : "In transit"}</span>
+                            {run.originCity && run.destCity && ` · ${run.originCity} → ${run.destCity}`}
+                            <span className="ml-2 inline-block rounded px-1 py-0.5 text-[9px] font-semibold uppercase bg-amber-500/10 text-amber-400">Loading</span>
                           </p>
                         </div>
                         {selectedRun?.id === run.id
@@ -257,6 +248,28 @@ export default function DispatchRunModal({ carrier, onClose }: Props) {
                   </div>
                 )}
               </div>
+
+              {/* Route — auto-filled from run's stored cities, editable */}
+              {selectedRun && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] font-medium text-stone-400">Route</p>
+                    {selectedRun.originCity && selectedRun.destCity && (
+                      <span className="text-[10px] text-stone-600">Auto-filled from run · editable</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-stone-500 block mb-1">Origin city</label>
+                      <CityAutocomplete value={originCity} onChange={setOriginCity} placeholder="e.g. Lagos" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-stone-500 block mb-1">Destination</label>
+                      <CityAutocomplete value={destCity} onChange={setDestCity} placeholder="e.g. Abuja" className={inputCls} />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {rateError && (
                 <p className="flex items-center gap-1.5 text-xs text-red-400 bg-red-500/[0.1] border border-red-500/20 rounded-lg px-3 py-2">

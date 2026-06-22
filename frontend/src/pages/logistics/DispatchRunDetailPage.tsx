@@ -283,28 +283,14 @@ export default function DispatchRunDetailPage() {
     }
   }
 
-  function openDispatch() {
-    setOriginCity("");
-    setDestCity("");
-    setRates([]);
-    setSelectedRate(null);
-    setDispatchError("");
-    setDispatchStep("cities");
-    setDispatchOpen(true);
-  }
-
-  async function handleFetchRates() {
-    if (!originCity.trim() || !destCity.trim()) {
-      setDispatchError("Enter both origin and destination cities.");
-      return;
-    }
+  async function fetchRatesFor(origin: string, dest: string) {
     setDispatchError("");
     setRatesLoading(true);
     try {
       const distKm = run?.distanceKm ?? null;
       const fetched = await networkRateApi.check({
-        origin:      { countryCode: "ng", cityName: originCity.trim() },
-        destination: { countryCode: "ng", cityName: destCity.trim() },
+        origin:      { countryCode: "ng", cityName: origin.trim() },
+        destination: { countryCode: "ng", cityName: dest.trim() },
         packages:    [{ weight: { value: 1, unit: "kg" } }],
         distanceKm:  distKm,
       });
@@ -315,6 +301,31 @@ export default function DispatchRunDetailPage() {
     } finally {
       setRatesLoading(false);
     }
+  }
+
+  function openDispatch() {
+    const preOrigin = run?.originCity ?? "";
+    const preDest   = run?.destCity ?? "";
+    setOriginCity(preOrigin);
+    setDestCity(preDest);
+    setRates([]);
+    setSelectedRate(null);
+    setDispatchError("");
+    setDispatchOpen(true);
+    if (preOrigin && preDest) {
+      setDispatchStep("rates");
+      fetchRatesFor(preOrigin, preDest);
+    } else {
+      setDispatchStep("cities");
+    }
+  }
+
+  async function handleFetchRates() {
+    if (!originCity.trim() || !destCity.trim()) {
+      setDispatchError("Enter both origin and destination cities.");
+      return;
+    }
+    await fetchRatesFor(originCity, destCity);
   }
 
   async function handleDispatchToCarrier() {
@@ -774,7 +785,7 @@ export default function DispatchRunDetailPage() {
                 <p className="text-sm font-semibold text-white">Dispatch to carrier</p>
                 <p className="text-[11px] text-stone-500 mt-0.5">
                   {dispatchStep === "cities" ? "Enter the route cities to see carrier rates" :
-                   dispatchStep === "rates"  ? "Choose a carrier for this run" :
+                   dispatchStep === "rates"  ? `${originCity} → ${destCity} · choose a carrier` :
                    "Confirm carrier booking"}
                 </p>
               </div>

@@ -107,6 +107,8 @@ export function QuickDispatch({ onCreated }: Props) {
         distanceKm: distanceKm ? parseInt(distanceKm, 10) : undefined,
         riderFee: riderFee ? parseInt(riderFee, 10) : undefined,
         expectedDeliveryDate: expectedDeliveryDate || undefined,
+        originCity: selectedRoute?.pickupLocation || undefined,
+        destCity: selectedRoute?.deliveryLocation || undefined,
       });
       setOpen(false);
       onCreated?.();
