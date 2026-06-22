@@ -706,8 +706,8 @@ export default function DispatchRunDetailPage() {
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {availableWaybills.map((w) => {
                   const offRoute = Boolean(
-                    run.destCity &&
-                    !w.deliveryLocation.toLowerCase().includes(run.destCity.toLowerCase())
+                    (run.originCity && !w.pickupLocation.toLowerCase().includes(run.originCity.toLowerCase())) ||
+                    (run.destCity   && !w.deliveryLocation.toLowerCase().includes(run.destCity.toLowerCase()))
                   );
                   return (
                     <div key={w.id} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${offRoute ? "border-amber-500/25 bg-amber-500/[0.05]" : "border-white/[0.06] bg-white/[0.03]"}`}>
@@ -774,11 +774,16 @@ export default function DispatchRunDetailPage() {
                     {leg.shipmentValue > 0 && (
                       <span className="text-[10px] text-stone-500">{formatNaira(leg.shipmentValue)}</span>
                     )}
-                    {run.destCity && !leg.deliveryLocation.toLowerCase().includes(run.destCity.toLowerCase()) && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/[0.08] border border-amber-500/20 rounded px-1.5 py-0.5">
-                        <AlertCircle className="h-2.5 w-2.5 shrink-0" /> Route mismatch
-                      </span>
-                    )}
+                    {(() => {
+                      const legOffRoute =
+                        (run.originCity && !leg.pickupLocation.toLowerCase().includes(run.originCity.toLowerCase())) ||
+                        (run.destCity   && !leg.deliveryLocation.toLowerCase().includes(run.destCity.toLowerCase()));
+                      return legOffRoute ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/[0.08] border border-amber-500/20 rounded px-1.5 py-0.5">
+                          <AlertCircle className="h-2.5 w-2.5 shrink-0" /> Route mismatch
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
                 {(run.status === "loading" || (run.status === "in_transit" && leg.handoverCount === 0)) && (

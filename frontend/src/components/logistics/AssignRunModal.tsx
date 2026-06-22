@@ -8,12 +8,18 @@ import { CityAutocomplete } from "@/components/common/CityAutocomplete";
 interface Props {
   shipmentId: string;
   waybillNumber: string;
+  pickupLocation?: string;
+  deliveryLocation?: string;
   onClose: () => void;
+}
+
+function extractCity(location: string): string {
+  return location.split(",")[0].trim();
 }
 
 type View = "choose" | "new";
 
-export default function AssignRunModal({ shipmentId, waybillNumber, onClose }: Props) {
+export default function AssignRunModal({ shipmentId, waybillNumber, pickupLocation, deliveryLocation, onClose }: Props) {
   const navigate = useNavigate();
 
   const [runs, setRuns] = useState<DispatchRun[]>([]);
@@ -26,8 +32,8 @@ export default function AssignRunModal({ shipmentId, waybillNumber, onClose }: P
   // "New run" form fields
   const [newName, setNewName] = useState("");
   const [newRiderId, setNewRiderId] = useState("");
-  const [newOriginCity, setNewOriginCity] = useState("");
-  const [newDestCity, setNewDestCity] = useState("");
+  const [newOriginCity, setNewOriginCity] = useState(() => pickupLocation ? extractCity(pickupLocation) : "");
+  const [newDestCity, setNewDestCity] = useState(() => deliveryLocation ? extractCity(deliveryLocation) : "");
   const [newDistanceKm, setNewDistanceKm] = useState("");
   const [newRiderFee, setNewRiderFee] = useState("");
   const [newExpectedDate, setNewExpectedDate] = useState("");

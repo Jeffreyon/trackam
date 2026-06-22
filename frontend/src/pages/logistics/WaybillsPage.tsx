@@ -13,6 +13,8 @@ type Filter = "all" | "in_transit" | "delivered";
 interface PendingAssign {
   shipmentId: string;
   waybillNumber: string;
+  pickupLocation: string;
+  deliveryLocation: string;
 }
 
 export default function WaybillsPage() {
@@ -147,7 +149,7 @@ export default function WaybillsPage() {
                     </a>
                   ) : w.shipmentId ? (
                     <button
-                      onClick={() => setPendingAssign({ shipmentId: w.shipmentId!, waybillNumber: w.waybillNumber })}
+                      onClick={() => setPendingAssign({ shipmentId: w.shipmentId!, waybillNumber: w.waybillNumber, pickupLocation: w.pickupLocation, deliveryLocation: w.deliveryLocation })}
                       className="inline-flex items-center gap-1 rounded-full bg-orange-500/[0.1] border border-orange-500/20 text-orange-400 px-2 py-0.5 text-[11px] font-medium hover:bg-orange-500/[0.15] transition-all whitespace-nowrap"
                     >
                       <Plus className="h-2.5 w-2.5" /> Assign run
@@ -197,6 +199,8 @@ export default function WaybillsPage() {
         <AssignRunModal
           shipmentId={pendingAssign.shipmentId}
           waybillNumber={pendingAssign.waybillNumber}
+          pickupLocation={pendingAssign.pickupLocation}
+          deliveryLocation={pendingAssign.deliveryLocation}
           onClose={() => { setPendingAssign(null); reload(); }}
         />
       )}
