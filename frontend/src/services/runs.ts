@@ -2,7 +2,7 @@ import { apiClient } from "@/lib/apiClient";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type RunStatus = "loading" | "in_transit" | "completed" | "cancelled";
+export type RunStatus = "loading" | "in_transit" | "with_carrier" | "completed" | "cancelled";
 
 export interface RunLeg {
   id: string;
@@ -39,6 +39,8 @@ export interface DispatchRun {
   completedAt: string | null;
   legCount: number;
   totalValue: number;
+  originCity: string | null;
+  destCity: string | null;
   createdAt: string;
   updatedAt: string;
 }

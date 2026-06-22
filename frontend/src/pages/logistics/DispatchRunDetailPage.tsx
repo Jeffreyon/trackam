@@ -17,15 +17,17 @@ import { StatusBadge } from "@/components/logistics/StatusBadge";
 import type { ShipmentStatus } from "@/services/logistics";
 
 const STATUS_TRANSITIONS: Partial<Record<RunStatus, RunStatus>> = {
-  loading: "in_transit",
+  loading:    "in_transit",
   in_transit: "completed",
+  // with_carrier: no manual transition — carrier side drives completion via webhook
 };
 
 const STATUS_LABELS: Record<RunStatus, string> = {
-  loading: "Loading at dock",
-  in_transit: "In transit",
-  completed: "Completed",
-  cancelled: "Cancelled",
+  loading:      "Loading at dock",
+  in_transit:   "In transit",
+  with_carrier: "With carrier",
+  completed:    "Completed",
+  cancelled:    "Cancelled",
 };
 
 export default function DispatchRunDetailPage() {
@@ -380,10 +382,11 @@ export default function DispatchRunDetailPage() {
       <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-5 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${run.status === "in_transit" ? "bg-blue-500/[0.12]" : run.status === "completed" ? "bg-emerald-500/[0.12]" : "bg-amber-500/[0.12]"}`}>
-              {run.status === "completed" ? <CheckCircle2 className="h-5 w-5 text-emerald-400" /> :
-               run.status === "cancelled" ? <XCircle className="h-5 w-5 text-stone-500" /> :
-               run.status === "in_transit" ? <Navigation className="h-5 w-5 text-blue-400" /> :
+            <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${run.status === "in_transit" ? "bg-blue-500/[0.12]" : run.status === "completed" ? "bg-emerald-500/[0.12]" : run.status === "with_carrier" ? "bg-orange-500/[0.12]" : "bg-amber-500/[0.12]"}`}>
+              {run.status === "completed"    ? <CheckCircle2 className="h-5 w-5 text-emerald-400" /> :
+               run.status === "cancelled"    ? <XCircle className="h-5 w-5 text-stone-500" /> :
+               run.status === "in_transit"   ? <Navigation className="h-5 w-5 text-blue-400" /> :
+               run.status === "with_carrier" ? <Truck className="h-5 w-5 text-orange-400" /> :
                <Clock className="h-5 w-5 text-amber-400" />}
             </div>
             <div className="min-w-0">

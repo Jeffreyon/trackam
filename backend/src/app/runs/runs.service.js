@@ -2,8 +2,9 @@ const repo = require("./runs.repository");
 const { query } = require("../../core/db/postgres");
 
 const VALID_TRANSITIONS = {
-  loading:    ["in_transit", "cancelled"],
-  in_transit: ["completed", "cancelled"],
+  loading:      ["in_transit", "cancelled"],
+  in_transit:   ["completed", "with_carrier", "cancelled"],
+  with_carrier: ["completed", "cancelled"],
 };
 
 async function getSettings(userId) {
@@ -21,7 +22,7 @@ async function getSettings(userId) {
 }
 
 async function createRun(userId, body) {
-  const { name, riderId, notes, distanceKm, riderFee, expectedDeliveryDate } = body;
+  const { name, riderId, notes, distanceKm, riderFee, expectedDeliveryDate, originCity, destCity } = body;
 
   let fuelCostKobo = 0;
   let riderFeeKobo = 0;
@@ -43,6 +44,8 @@ async function createRun(userId, body) {
     fuelCost: fuelCostKobo,
     totalCost: totalCostKobo,
     expectedDeliveryDate,
+    originCity: originCity || null,
+    destCity: destCity || null,
   });
 }
 

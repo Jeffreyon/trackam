@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   Loader2, ShieldCheck, MapPin, ArrowRight, CheckCircle2,
   Package, Phone, Hash, ChevronRight, Layers, Truck, Navigation, LogOut,
-  AlertCircle, Send,
+  AlertCircle, Send, Camera, X as XIcon,
 } from "lucide-react";
 import { formatNaira } from "@/lib/format";
 import { QRCodeSVG } from "qrcode.react";
@@ -107,6 +107,14 @@ export default function DriverHandoverPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [qrError, setQrError] = useState("");
+
+  // Photo bypass state — giver photographs receiver as evidence
+  const [photoBypass, setPhotoBypass] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [bypassReceiverName, setBypassReceiverName] = useState("");
+  const [bypassReceiverPhone, setBypassReceiverPhone] = useState("");
+  const [bypassSubmitting, setBypassSubmitting] = useState(false);
+  const [bypassError, setBypassError] = useState("");
   const [bulkMode, setBulkMode] = useState(false);
 
   // Final-mile delivery OTP state — used when handing off directly to the
@@ -484,6 +492,46 @@ export default function DriverHandoverPage() {
       }
     } catch {
       // silently ignore
+    }
+  }
+
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function handlePhysicalConfirm() {
+    if (!photoPreview || !bypassReceiverName || !handoverToken) return;
+    const phoneToken = getPhoneToken();
+    if (!phoneToken) {
+      setBypassError("Phone token missing — sign out and sign back in.");
+      return;
+    }
+    setBypassSubmitting(true);
+    setBypassError("");
+    try {
+      await publicHandoverApi.physicalConfirm({
+        token: handoverToken,
+        phoneToken,
+        receiverName: bypassReceiverName,
+        receiverPhone: bypassReceiverPhone || undefined,
+        receiverActorType,
+        photoDataUrl: photoPreview,
+        latitude:  gpsCoords?.lat,
+        longitude: gpsCoords?.lng,
+      });
+      setPhotoBypass(false);
+      setConfirmed(true);
+      setPhase("success");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || "Could not confirm handover. Try again.";
+      setBypassError(msg);
+    } finally {
+      setBypassSubmitting(false);
     }
   }
 
@@ -1333,11 +1381,83 @@ export default function DriverHandoverPage() {
             </div>
 
             <button
-              onClick={() => setConfirmed(true)}
-              className="text-xs text-stone-400 underline underline-offset-2"
+              onClick={() => { setPhotoBypass(true); setBypassError(""); setPhotoPreview(null); setBypassReceiverName(""); setBypassReceiverPhone(""); }}
+              className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-300 transition-colors"
             >
-              Receiver confirmed in person
+              <Camera className="h-3.5 w-3.5" />
+              Can't scan? Take photo evidence
             </button>
+          </div>
+        )}
+
+        {/* Photo evidence bypass modal */}
+        {phase === "qr" && photoBypass && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
+            <div className="bg-[#0a1220] border border-white/[0.06] rounded-xl p-5 w-full max-w-sm space-y-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-white">Photo evidence</h2>
+                  <p className="text-[11px] text-stone-400 mt-0.5">
+                    Photograph the receiver accepting the package. You accept liability as the handing party.
+                  </p>
+                </div>
+                <button onClick={() => setPhotoBypass(false)} className="text-stone-600 hover:text-stone-400 shrink-0">
+                  <XIcon className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-stone-400">Photo *</label>
+                <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-white/[0.1] bg-white/[0.02] hover:bg-white/[0.04] px-3 py-2.5 transition-colors">
+                  <Camera className="h-4 w-4 text-stone-500 shrink-0" />
+                  <span className="text-xs text-stone-500">Tap to take photo or choose file</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    onChange={handlePhotoSelect}
+                  />
+                </label>
+                {photoPreview && (
+                  <img src={photoPreview} alt="Evidence" className="rounded-lg w-full max-h-40 object-cover border border-white/[0.06]" />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <input
+                  placeholder="Receiver name *"
+                  value={bypassReceiverName}
+                  onChange={(e) => setBypassReceiverName(e.target.value)}
+                  className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 h-9 text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-purple-500/40"
+                />
+                <PhoneInput
+                  value={bypassReceiverPhone}
+                  onChange={setBypassReceiverPhone}
+                  placeholder="Receiver phone (optional)"
+                />
+              </div>
+
+              {bypassError && (
+                <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">{bypassError}</p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPhotoBypass(false)}
+                  className="flex-1 rounded-lg border border-white/[0.06] h-9 text-xs text-stone-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePhysicalConfirm}
+                  disabled={bypassSubmitting || !photoPreview || !bypassReceiverName.trim()}
+                  className="flex-1 rounded-lg bg-orange-600 text-white h-9 text-xs font-semibold hover:bg-orange-700 disabled:opacity-50 inline-flex items-center justify-center"
+                >
+                  {bypassSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm handover"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

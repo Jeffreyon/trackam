@@ -21,6 +21,8 @@ function mapRun(row) {
     completedAt:           row.completed_at || null,
     legCount:              Number(row.leg_count || 0),
     totalValue:            Number(row.total_value || 0),
+    originCity:            row.origin_city || null,
+    destCity:              row.dest_city || null,
     createdAt:             row.created_at,
     updatedAt:             row.updated_at,
   };
@@ -45,15 +47,16 @@ function mapLeg(row) {
   };
 }
 
-async function create({ userId, name, riderId, notes, distanceKm, riderFee, fuelCost, totalCost, expectedDeliveryDate }) {
+async function create({ userId, name, riderId, notes, distanceKm, riderFee, fuelCost, totalCost, expectedDeliveryDate, originCity, destCity }) {
   const result = await query(
     `INSERT INTO dispatch_runs
-       (user_id, name, rider_id, notes, distance_km, rider_fee, fuel_cost, total_cost, expected_delivery_date)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+       (user_id, name, rider_id, notes, distance_km, rider_fee, fuel_cost, total_cost, expected_delivery_date, origin_city, dest_city)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
     [
       userId, name || null, riderId || null, notes || null,
       distanceKm || 0, riderFee || 0, fuelCost || 0, totalCost || 0,
       expectedDeliveryDate || null,
+      originCity || null, destCity || null,
     ]
   );
   return getById(result.rows[0].id, userId);
@@ -220,6 +223,13 @@ async function updateStatus(runId, userId, status) {
         WHERE run_id = $1 AND status NOT IN ('delivered','failed','ghosted','handed_over')`,
       [runId]
     );
+  } else if (status === "with_carrier") {
+    const r = await query(
+      `UPDATE dispatch_runs SET status=$1, last_status_update_at=NOW(), updated_at=NOW()
+       WHERE id=$2 AND user_id=$3 RETURNING id`,
+      [status, runId, userId]
+    );
+    if (!r.rows[0]) return null;
   } else {
     const r = await query(
       `UPDATE dispatch_runs SET status=$1, last_status_update_at=NOW(), updated_at=NOW()
@@ -230,6 +240,26 @@ async function updateStatus(runId, userId, status) {
   }
 
   return getById(runId, userId);
+}
+
+// System-triggered (no userId): carrier received the booking → run is with the carrier
+async function markWithCarrier(runId) {
+  await query(
+    `UPDATE dispatch_runs
+     SET status = 'with_carrier', last_status_update_at = NOW(), updated_at = NOW()
+     WHERE id = $1 AND status = 'in_transit'`,
+    [runId]
+  );
+}
+
+// System-triggered (no userId): carrier delivered → run is complete
+async function markCompleted(runId) {
+  await query(
+    `UPDATE dispatch_runs
+     SET status = 'completed', completed_at = NOW(), last_status_update_at = NOW(), updated_at = NOW()
+     WHERE id = $1 AND status IN ('in_transit', 'with_carrier')`,
+    [runId]
+  );
 }
 
 async function update(runId, userId, fields) {
@@ -282,4 +312,4 @@ async function flagDelaysAndGhosting(userId, ghostThresholdHours) {
   );
 }
 
-module.exports = { create, listByUser, getById, addLeg, removeLeg, updateStatus, update, flagDelaysAndGhosting };
+module.exports = { create, listByUser, getById, addLeg, removeLeg, updateStatus, update, flagDelaysAndGhosting, markWithCarrier, markCompleted };

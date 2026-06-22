@@ -133,6 +133,23 @@ export const publicHandoverApi = {
     longitude?: number;
   }) =>
     axios.post<BulkHandoverConfirmed>(`${publicBase()}/api/handover/confirm-bulk-as-rider`, body).then((r) => r.data),
+
+  // Giver-initiated physical confirm: driver photographs the receiver as evidence.
+  // Requires custodian phoneToken (proves giver has custody).
+  physicalConfirm: (body: {
+    token: string;
+    phoneToken: string;
+    receiverName: string;
+    receiverPhone?: string;
+    receiverActorType: ActorType;
+    photoDataUrl: string;
+    latitude?: number;
+    longitude?: number;
+  }) =>
+    axios.post<HandoverConfirmation>(
+      `${publicBase()}/api/handover/token/${body.token}/physical-confirm`,
+      body,
+    ).then((r) => r.data),
 };
 
 export const publicWaybillApi = {

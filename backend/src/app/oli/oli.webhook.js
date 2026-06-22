@@ -4,6 +4,7 @@ const router   = express.Router();
 const { query } = require("../../core/db/postgres");
 const ssePool  = require("../../core/sse");
 const oliAccountRepo = require("./oli.account.repository");
+const runsRepo = require("../runs/runs.repository");
 
 const OLI_API_KEY_ENV = process.env.OLI_API_KEY || "";
 
@@ -76,6 +77,10 @@ async function handleEvent(event, payload) {
       return onBookingAccepted(payload);
     case "carrier.tracking_update":
       return onCarrierTrackingUpdate(payload);
+    case "run_booking.received":
+      return onRunBookingReceived(payload);
+    case "run_booking.delivered":
+      return onRunBookingDelivered(payload);
     default:
       break;
   }
@@ -88,7 +93,7 @@ async function onHandoverConfirmed(payload) {
   try {
     // Look up the operator user who owns this shipment locally
     const result = await query(
-      `SELECT s.user_id, s.waybill_id, s.status, lw.waybill_number
+      `SELECT s.user_id, s.waybill_id, s.status, s.run_id, lw.waybill_number
        FROM shipments s
        LEFT JOIN lite_waybills lw ON lw.id = s.waybill_id
        WHERE s.id = $1
@@ -116,6 +121,21 @@ async function onHandoverConfirmed(payload) {
           occurredAt || new Date().toISOString(),
         ]
       ).catch(() => {}); // non-fatal
+
+      // Item 4: when our rider hands over to a hub (ACTOR_HUB), check if all
+      // shipments in the run are now at hub or beyond. If so, complete the run.
+      if (receiverActorType === "ACTOR_HUB" && row.run_id) {
+        const notYetHandedOver = await query(
+          `SELECT COUNT(*)::int AS cnt
+           FROM shipments
+           WHERE run_id = $1
+             AND status NOT IN ('handed_over', 'delivered', 'failed', 'ghosted')`,
+          [row.run_id]
+        );
+        if (Number(notYetHandedOver.rows[0]?.cnt) === 0) {
+          await runsRepo.markCompleted(row.run_id).catch(() => {});
+        }
+      }
     }
 
     // Push SSE event to operator's dashboard
@@ -132,6 +152,26 @@ async function onHandoverConfirmed(payload) {
     });
   } catch (err) {
     console.error("[oli.webhook] onHandoverConfirmed error:", err.message);
+  }
+}
+
+// Item 2: carrier received the booking — mark source run as with_carrier
+async function onRunBookingReceived({ sourceRunId }) {
+  if (!sourceRunId) return;
+  try {
+    await runsRepo.markWithCarrier(sourceRunId);
+  } catch (err) {
+    console.error("[oli.webhook] onRunBookingReceived error:", err.message);
+  }
+}
+
+// Item 2: carrier delivered all shipments — mark source run as completed
+async function onRunBookingDelivered({ sourceRunId }) {
+  if (!sourceRunId) return;
+  try {
+    await runsRepo.markCompleted(sourceRunId);
+  } catch (err) {
+    console.error("[oli.webhook] onRunBookingDelivered error:", err.message);
   }
 }
 
