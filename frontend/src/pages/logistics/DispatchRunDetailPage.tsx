@@ -415,12 +415,26 @@ export default function DispatchRunDetailPage() {
                   )}
                 </div>
               )}
-              <p className="text-xs text-stone-500 mt-0.5">{STATUS_LABELS[run.status]}</p>
-              {(run.originCity || run.destCity) && (
-                <p className="text-xs text-stone-400 mt-0.5">
-                  {run.originCity ?? "?"} → {run.destCity ?? "?"}
-                </p>
-              )}
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {(run.originCity || run.destCity) && (
+                  <p className="text-sm font-semibold text-stone-200">
+                    {run.originCity ?? "?"} → {run.destCity ?? "?"}
+                  </p>
+                )}
+                {(run.originCity || run.destCity) && (
+                  <span className="text-stone-600 text-xs">|</span>
+                )}
+                <span className={[
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border",
+                  run.status === "loading"      ? "bg-amber-500/[0.1] text-amber-400 border-amber-500/20" :
+                  run.status === "in_transit"   ? "bg-blue-500/[0.1] text-blue-400 border-blue-500/20" :
+                  run.status === "with_carrier" ? "bg-orange-500/[0.1] text-orange-400 border-orange-500/20" :
+                  run.status === "completed"    ? "bg-emerald-500/[0.1] text-emerald-400 border-emerald-500/20" :
+                  "bg-stone-500/[0.1] text-stone-400 border-stone-500/20"
+                ].join(" ")}>
+                  {STATUS_LABELS[run.status]}
+                </span>
+              </div>
             </div>
           </div>
           <div className="text-right shrink-0">
