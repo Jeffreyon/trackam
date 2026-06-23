@@ -721,10 +721,26 @@ export default function DispatchRunDetailPage() {
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {availableWaybills.map((w) => {
-                  const offRoute = Boolean(
-                    (run.originCity && !w.pickupLocation.toLowerCase().includes(run.originCity.toLowerCase())) ||
-                    (run.destCity   && !w.deliveryLocation.toLowerCase().includes(run.destCity.toLowerCase()))
-                  );
+                  const wOrigin = w.pickupLocation.toLowerCase();
+                  const wDest   = w.deliveryLocation.toLowerCase();
+                  const rOrigin = (run.originCity || "").toLowerCase();
+                  const rDest   = (run.destCity   || "").toLowerCase();
+                  const originMismatch = Boolean(run.originCity && !wOrigin.includes(rOrigin) && !rOrigin.includes(wOrigin));
+                  const destMismatch   = Boolean(run.destCity   && !wDest.includes(rDest)     && !rDest.includes(wDest));
+                  const offRoute = originMismatch || destMismatch;
+
+                  const mismatchLabel = originMismatch && destMismatch
+                    ? `Route mismatch — ${w.pickupLocation} → ${w.deliveryLocation}, run is ${run.originCity} → ${run.destCity}`
+                    : originMismatch
+                    ? `Picks up from ${w.pickupLocation} — run starts at ${run.originCity}`
+                    : `Delivers to ${w.deliveryLocation} — run goes to ${run.destCity}`;
+
+                  const confirmMsg = originMismatch && destMismatch
+                    ? `This waybill goes ${w.pickupLocation} → ${w.deliveryLocation}, but this run is ${run.originCity} → ${run.destCity}.\n\nAdd anyway?`
+                    : originMismatch
+                    ? `This waybill picks up from ${w.pickupLocation}, but this run starts at ${run.originCity}.\n\nAdd anyway?`
+                    : `This waybill delivers to ${w.deliveryLocation}, but this run goes to ${run.destCity}.\n\nAdd anyway?`;
+
                   return (
                     <div key={w.id} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${offRoute ? "border-amber-500/25 bg-amber-500/[0.05]" : "border-white/[0.06] bg-white/[0.03]"}`}>
                       <div className="min-w-0">
@@ -733,15 +749,13 @@ export default function DispatchRunDetailPage() {
                         {offRoute && (
                           <p className="text-[10px] text-amber-400 flex items-center gap-1 mt-0.5">
                             <AlertCircle className="h-2.5 w-2.5 shrink-0" />
-                            Delivers to {w.deliveryLocation} — run goes to {run.destCity}
+                            {mismatchLabel}
                           </p>
                         )}
                       </div>
                       <button
                         onClick={() => {
-                          if (offRoute && !window.confirm(
-                            `This waybill delivers to ${w.deliveryLocation}, but this run goes to ${run.destCity}.\n\nAdd anyway?`
-                          )) return;
+                          if (offRoute && !window.confirm(confirmMsg)) return;
                           handleAddLeg(w.shipmentId!);
                         }}
                         disabled={addingId === w.shipmentId}
@@ -791,9 +805,13 @@ export default function DispatchRunDetailPage() {
                       <span className="text-[10px] text-stone-500">{formatNaira(leg.shipmentValue)}</span>
                     )}
                     {(() => {
+                      const lo = leg.pickupLocation.toLowerCase();
+                      const ld = leg.deliveryLocation.toLowerCase();
+                      const ro = (run.originCity || "").toLowerCase();
+                      const rd = (run.destCity   || "").toLowerCase();
                       const legOffRoute =
-                        (run.originCity && !leg.pickupLocation.toLowerCase().includes(run.originCity.toLowerCase())) ||
-                        (run.destCity   && !leg.deliveryLocation.toLowerCase().includes(run.destCity.toLowerCase()));
+                        (run.originCity && !lo.includes(ro) && !ro.includes(lo)) ||
+                        (run.destCity   && !ld.includes(rd) && !rd.includes(ld));
                       return legOffRoute ? (
                         <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/[0.08] border border-amber-500/20 rounded px-1.5 py-0.5">
                           <AlertCircle className="h-2.5 w-2.5 shrink-0" /> Route mismatch
