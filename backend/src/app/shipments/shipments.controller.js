@@ -137,4 +137,19 @@ router.post("/:id/reclaim", asyncHandler(async (req, res) => {
   res.json(await ShipmentsService.reclaimShipment(req.user.uid, req.params.id, req.body));
 }));
 
+// Archive / unarchive a shipment from the waybills view
+router.post("/:id/archive", asyncHandler(async (req, res) => {
+  const { unarchive } = req.body;
+  const { query } = require("../../core/db/postgres");
+  const result = await query(
+    `UPDATE shipments
+     SET archived_at = ${unarchive ? "NULL" : "NOW()"}
+     WHERE id = $1 AND user_id = $2
+     RETURNING id, archived_at`,
+    [req.params.id, req.user.uid]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: "Shipment not found" });
+  res.json({ archived: !unarchive, archivedAt: result.rows[0].archived_at });
+}));
+
 module.exports = router;

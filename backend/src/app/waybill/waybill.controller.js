@@ -231,7 +231,8 @@ router.get("/mine", localAuthOptional, asyncHandler(async (req, res) => {
 
   try {
     const result = await query(
-      `SELECT s.id AS shipment_id, dr.id AS run_id, dr.name AS run_name, dr.status AS run_status
+      `SELECT s.id AS shipment_id, s.archived_at,
+              dr.id AS run_id, dr.name AS run_name, dr.status AS run_status
        FROM shipments s
        LEFT JOIN dispatch_runs dr ON dr.id = s.run_id
        WHERE s.id = ANY($1)`,
@@ -241,15 +242,22 @@ router.get("/mine", localAuthOptional, asyncHandler(async (req, res) => {
     const runMap = {};
     for (const row of result.rows) {
       runMap[row.shipment_id] = {
-        runId:     row.run_id     || null,
-        runName:   row.run_name   || null,
-        runStatus: row.run_status || null,
+        runId:      row.run_id     || null,
+        runName:    row.run_name   || null,
+        runStatus:  row.run_status || null,
+        archivedAt: row.archived_at || null,
       };
     }
 
     return res.json(waybills.map((w) => {
-      const run = w.shipmentId ? (runMap[w.shipmentId] ?? null) : null;
-      return { ...w, runId: run?.runId ?? null, runName: run?.runName ?? null, runStatus: run?.runStatus ?? null };
+      const local = w.shipmentId ? (runMap[w.shipmentId] ?? null) : null;
+      return {
+        ...w,
+        runId:      local?.runId      ?? null,
+        runName:    local?.runName    ?? null,
+        runStatus:  local?.runStatus  ?? null,
+        archivedAt: local?.archivedAt ?? null,
+      };
     }));
   } catch {
     return res.json(waybills);

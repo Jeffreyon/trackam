@@ -214,11 +214,14 @@ export interface OperatorWaybill {
   runId: string | null;
   runName: string | null;
   runStatus: string | null;
+  archivedAt: string | null;
 }
 
 export const waybillApi = {
   list: () =>
     apiClient.get<OperatorWaybill[]>(`/api/waybill/mine`).then((r) => r.data),
+  archive: (shipmentId: string, unarchive = false) =>
+    apiClient.post(`/api/shipments/${shipmentId}/archive`, { unarchive }).then((r) => r.data),
   claim: (data: { waybillNumber: string; claimToken: string }) =>
     apiClient.post<{ shipmentId: string }>(`/api/waybill/claim`, data).then((r) => r.data),
   joinLeg: (waybillId: string, proofHash: string) =>
