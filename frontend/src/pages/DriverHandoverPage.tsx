@@ -46,6 +46,11 @@ export default function DriverHandoverPage() {
   const [joinSubmitting, setJoinSubmitting] = useState(false);
   const [joinError, setJoinError] = useState("");
   const [joinSuccess, setJoinSuccess] = useState<HandoverConfirmation | BulkHandoverConfirmed | null>(null);
+  useEffect(() => {
+    if (!joinSuccess) return;
+    const t = setTimeout(() => setJoinSuccess(null), 4000);
+    return () => clearTimeout(t);
+  }, [joinSuccess]);
 
   // GPS — auto-capture once when the page mounts so it's available for
   // any handover the rider does on this page (join, delivery OTP, etc.).
